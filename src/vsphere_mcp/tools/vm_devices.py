@@ -6,7 +6,12 @@ from pyVmomi import vim
 
 from vsphere_mcp.client import VSphereClient
 from vsphere_mcp.logging import get_logger
-from vsphere_mcp.tools._base import find_vm_with_props, handle_tool_errors, require_confirm, wait_for_task
+from vsphere_mcp.tools._base import (
+    find_vm_with_props,
+    handle_tool_errors,
+    require_confirm,
+    wait_for_task,
+)
 
 logger = get_logger(__name__)
 
@@ -292,3 +297,177 @@ def register_vm_device_tools(mcp: Any, client: VSphereClient) -> None:
         if enter_bios_setup is not None:
             result["enter_bios_setup"] = enter_bios_setup
         return result
+
+    @mcp.tool()
+    @handle_tool_errors
+    def list_vm_cddvd_drives(vm_name: str) -> dict[str, Any]:
+        """List CD/DVD drives on a VM with ISO mount status and connected state."""
+        logger.info("list_vm_cddvd_drives", vm_name=vm_name)
+        found = find_vm_with_props(client, vm_name, ["config.hardware.device"])
+        if found is None:
+            return {"status": "error", "error": f"VM '{vm_name}' not found"}
+
+        devices = found.get("config.hardware.device", [])
+        drives = []
+        for dev in devices:
+            if isinstance(dev, vim.vm.device.VirtualCdrom):
+                backing = dev.backing
+                iso_path = None
+                backing_type = type(backing).__name__
+                if isinstance(backing, vim.vm.device.VirtualCdrom.IsoBackingInfo):
+                    iso_path = backing.fileName
+                connectable = dev.connectable
+                drives.append(
+                    {
+                        "label": dev.deviceInfo.label,
+                        "key": dev.key,
+                        "backing_type": backing_type,
+                        "iso_path": iso_path,
+                        "connected": connectable.connected if connectable else False,
+                        "start_connected": connectable.startConnected if connectable else False,
+                    }
+                )
+        return {"vm_name": vm_name, "cddvd_drives": drives}
+
+    @mcp.tool()
+    @handle_tool_errors
+    @require_confirm(danger_level="medium")
+    def mount_vm_cdrom_iso(vm_name: str, cdrom_label: str, datastore_name: str, iso_path: str) -> dict[str, Any]:
+        """Mount an ISO file to a VM CD/DVD drive. Example: cdrom_label='CD/DVD drive 1', iso_path='iso/ubuntu.iso'."""
+        logger.info(
+            "mount_vm_cdrom_iso",
+            vm_name=vm_name,
+            cdrom_label=cdrom_label,
+            datastore_name=datastore_name,
+            iso_path=iso_path,
+        )
+        found = find_vm_with_props(client, vm_name, ["config.hardware.device"])
+        if found is None:
+            return {"status": "error", "error": f"VM '{vm_name}' not found"}
+
+        devices = found.get("config.hardware.device", [])
+        cdrom = None
+        for dev in devices:
+            if isinstance(dev, vim.vm.device.VirtualCdrom) and dev.deviceInfo.label == cdrom_label:
+                cdrom = dev
+                break
+        if cdrom is None:
+            return {"status": "error", "error": f"CD/DVD drive '{cdrom_label}' not found on VM '{vm_name}'"}
+
+        backing = vim.vm.device.VirtualCdrom.IsoBackingInfo(fileName=f"[{datastore_name}] {iso_path}")
+        cdrom.backing = backing
+        connectable = vim.vm.device.VirtualDevice.ConnectInfo(
+            connected=True,
+            startConnected=True,
+            allowGuestControl=True,
+        )
+        cdrom.connectable = connectable
+
+        cdrom_spec = vim.vm.device.VirtualDeviceSpec(
+            operation=vim.vm.device.VirtualDeviceSpec.Operation.edit,
+            device=cdrom,
+        )
+        config_spec = vim.vm.ConfigSpec(deviceChange=[cdrom_spec])
+        task = found["_obj"].Reconfigure(spec=config_spec)
+        result = wait_for_task(task)
+        result["vm_name"] = vm_name
+        result["cdrom_label"] = cdrom_label
+        result["iso_path"] = f"[{datastore_name}] {iso_path}"
+        result["operation"] = "mount_vm_cdrom_iso"
+        return result
+
+    @mcp.tool()
+    @handle_tool_errors
+    @require_confirm(danger_level="low")
+    def disconnect_vm_cdrom(vm_name: str, cdrom_label: str) -> dict[str, Any]:
+        """Disconnect a CD/DVD drive (switch to client device). cdrom_label example: 'CD/DVD drive 1'."""
+        logger.info("disconnect_vm_cdrom", vm_name=vm_name, cdrom_label=cdrom_label)
+        found = find_vm_with_props(client, vm_name, ["config.hardware.device"])
+        if found is None:
+            return {"status": "error", "error": f"VM '{vm_name}' not found"}
+
+        devices = found.get("config.hardware.device", [])
+        cdrom = None
+        for dev in devices:
+            if isinstance(dev, vim.vm.device.VirtualCdrom) and dev.deviceInfo.label == cdrom_label:
+                cdrom = dev
+                break
+        if cdrom is None:
+            return {"status": "error", "error": f"CD/DVD drive '{cdrom_label}' not found on VM '{vm_name}'"}
+
+        backing = vim.vm.device.VirtualCdrom.RemoteAtapiBackingInfo(deviceName="")
+        cdrom.backing = backing
+        connectable = vim.vm.device.VirtualDevice.ConnectInfo(
+            connected=False,
+            startConnected=False,
+            allowGuestControl=True,
+        )
+        cdrom.connectable = connectable
+
+        cdrom_spec = vim.vm.device.VirtualDeviceSpec(
+            operation=vim.vm.device.VirtualDeviceSpec.Operation.edit,
+            device=cdrom,
+        )
+        config_spec = vim.vm.ConfigSpec(deviceChange=[cdrom_spec])
+        task = found["_obj"].Reconfigure(spec=config_spec)
+        result = wait_for_task(task)
+        result["vm_name"] = vm_name
+        result["cdrom_label"] = cdrom_label
+        result["operation"] = "disconnect_vm_cdrom"
+        return result
+
+    @mcp.tool()
+    @handle_tool_errors
+    def get_vm_video_card(vm_name: str) -> dict[str, Any]:
+        """Get video card settings for a VM (video RAM, displays, 3D rendering)."""
+        logger.info("get_vm_video_card", vm_name=vm_name)
+        found = find_vm_with_props(client, vm_name, ["config.hardware.device"])
+        if found is None:
+            return {"status": "error", "error": f"VM '{vm_name}' not found"}
+
+        devices = found.get("config.hardware.device", [])
+        video_card = None
+        for dev in devices:
+            if isinstance(dev, vim.vm.device.VirtualVideoCard):
+                video_card = dev
+                break
+        if video_card is None:
+            return {"status": "error", "error": f"No video card found on VM '{vm_name}'"}
+
+        return {
+            "vm_name": vm_name,
+            "video_card": {
+                "label": video_card.deviceInfo.label,
+                "videoRamSizeInKB": video_card.videoRamSizeInKB,
+                "numDisplays": video_card.numDisplays,
+                "use3dRenderer": getattr(video_card, "use3dRenderer", None),
+                "enable3DSupport": getattr(video_card, "enable3DSupport", None),
+            },
+        }
+
+    @mcp.tool()
+    @handle_tool_errors
+    def list_vm_disk_layout(vm_name: str) -> dict[str, Any]:
+        """Get detailed disk layout for a VM: capacity, backing file, thin provisioning, disk mode."""
+        logger.info("list_vm_disk_layout", vm_name=vm_name)
+        found = find_vm_with_props(client, vm_name, ["config.hardware.device"])
+        if found is None:
+            return {"status": "error", "error": f"VM '{vm_name}' not found"}
+
+        devices = found.get("config.hardware.device", [])
+        disks = []
+        for dev in devices:
+            if isinstance(dev, vim.vm.device.VirtualDisk):
+                backing = dev.backing
+                disk_info: dict[str, Any] = {
+                    "label": dev.deviceInfo.label,
+                    "capacityInKB": dev.capacityInKB,
+                    "capacityInGB": round(dev.capacityInKB / (1024 * 1024), 2),
+                }
+                if backing is not None:
+                    disk_info["fileName"] = getattr(backing, "fileName", None)
+                    disk_info["thinProvisioned"] = getattr(backing, "thinProvisioned", None)
+                    disk_info["diskMode"] = getattr(backing, "diskMode", None)
+                    disk_info["eagerlyScrub"] = getattr(backing, "eagerlyScrub", None)
+                disks.append(disk_info)
+        return {"vm_name": vm_name, "disks": disks}

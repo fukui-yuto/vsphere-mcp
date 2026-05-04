@@ -17,6 +17,7 @@ from vsphere_mcp.tools.host_config import register_host_config_tools
 from vsphere_mcp.tools.inventory import register_inventory_tools
 from vsphere_mcp.tools.lifecycle import register_lifecycle_tools
 from vsphere_mcp.tools.migration import register_migration_tools
+from vsphere_mcp.tools.networking import register_networking_tools
 from vsphere_mcp.tools.performance import register_performance_tools
 from vsphere_mcp.tools.power import register_power_tools
 from vsphere_mcp.tools.resources import register_resource_tools
@@ -56,6 +57,7 @@ register_cluster_config_tools(mcp, client)
 register_vm_device_tools(mcp, client)
 register_folder_tools(mcp, client)
 register_datastore_browser_tools(mcp, client)
+register_networking_tools(mcp, client)
 
 
 def main() -> None:

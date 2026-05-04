@@ -407,3 +407,193 @@ def register_host_config_tools(mcp: Any, client: VSphereClient) -> None:
         if mem_status:
             result["health"]["memoryStatus"] = mem_status
         return result
+
+    @mcp.tool()
+    @handle_tool_errors
+    @require_confirm(danger_level="high")
+    def enable_esxi_ssh(host_name: str) -> dict[str, Any]:
+        """Enable SSH on an ESXi host.
+
+        [HIGH RISK] Requires confirm=True to execute.
+        """
+        logger.info("enable_esxi_ssh", host_name=host_name)
+        host_obj = find_host_by_name(client, host_name)
+        if host_obj is None:
+            return {"status": "error", "error": f"Host '{host_name}' not found"}
+        cm = _get_config_manager(host_obj)
+        if cm is None:
+            return {"status": "error", "error": "configManager not available on this host"}
+        service_system = cm.serviceSystem
+        if service_system is None:
+            return {"status": "error", "error": "serviceSystem not available"}
+        service_system.StartService(id="TSM-SSH")
+        return {
+            "status": "success",
+            "host_name": host_name,
+            "service_id": "TSM-SSH",
+            "action": "started",
+        }
+
+    @mcp.tool()
+    @handle_tool_errors
+    @require_confirm(danger_level="high")
+    def disable_esxi_ssh(host_name: str) -> dict[str, Any]:
+        """Disable SSH on an ESXi host.
+
+        [HIGH RISK] Requires confirm=True to execute.
+        """
+        logger.info("disable_esxi_ssh", host_name=host_name)
+        host_obj = find_host_by_name(client, host_name)
+        if host_obj is None:
+            return {"status": "error", "error": f"Host '{host_name}' not found"}
+        cm = _get_config_manager(host_obj)
+        if cm is None:
+            return {"status": "error", "error": "configManager not available on this host"}
+        service_system = cm.serviceSystem
+        if service_system is None:
+            return {"status": "error", "error": "serviceSystem not available"}
+        service_system.StopService(id="TSM-SSH")
+        return {
+            "status": "success",
+            "host_name": host_name,
+            "service_id": "TSM-SSH",
+            "action": "stopped",
+        }
+
+    @mcp.tool()
+    @handle_tool_errors
+    def get_host_syslog_config(host_name: str) -> dict[str, Any]:
+        """Get syslog configuration of an ESXi host."""
+        logger.info("get_host_syslog_config", host_name=host_name)
+        host_obj = find_host_by_name(client, host_name)
+        if host_obj is None:
+            return {"status": "error", "error": f"Host '{host_name}' not found"}
+        cm = _get_config_manager(host_obj)
+        if cm is None:
+            return {"status": "error", "error": "configManager not available on this host"}
+        advanced_option = cm.advancedOption
+        if advanced_option is None:
+            return {"status": "error", "error": "advancedOption not available"}
+        log_host_opts = advanced_option.QueryOptions(name="Syslog.global.logHost")
+        log_dir_opts = advanced_option.QueryOptions(name="Syslog.global.logDir")
+        log_host = log_host_opts[0].value if log_host_opts else None
+        log_dir = log_dir_opts[0].value if log_dir_opts else None
+        return {
+            "status": "success",
+            "host_name": host_name,
+            "syslog": {
+                "logHost": log_host,
+                "logDir": log_dir,
+            },
+        }
+
+    @mcp.tool()
+    @handle_tool_errors
+    def get_host_power_policy(host_name: str) -> dict[str, Any]:
+        """Get power management policy of an ESXi host."""
+        logger.info("get_host_power_policy", host_name=host_name)
+        host_obj = find_host_by_name(client, host_name)
+        if host_obj is None:
+            return {"status": "error", "error": f"Host '{host_name}' not found"}
+        cm = _get_config_manager(host_obj)
+        if cm is None:
+            return {"status": "error", "error": "configManager not available on this host"}
+        power_system = cm.powerSystem
+        if power_system is None:
+            return {"status": "error", "error": "powerSystem not available"}
+        info = power_system.info
+        if info is None:
+            return {"status": "error", "error": "powerSystem info not available"}
+        current_policy = info.currentPolicy
+        if current_policy is None:
+            return {"status": "error", "error": "currentPolicy not available"}
+        return {
+            "status": "success",
+            "host_name": host_name,
+            "power_policy": {
+                "key": current_policy.key,
+                "name": current_policy.name,
+                "shortName": current_policy.shortName,
+                "description": current_policy.description,
+            },
+        }
+
+    @mcp.tool()
+    @handle_tool_errors
+    @require_confirm(danger_level="medium")
+    def set_host_power_policy(host_name: str, policy_key: int) -> dict[str, Any]:
+        """Set power management policy on an ESXi host.
+
+        Args:
+            host_name: Name of the ESXi host.
+            policy_key: The power policy key to set.
+
+        [MEDIUM RISK] Requires confirm=True to execute.
+        """
+        logger.info("set_host_power_policy", host_name=host_name, policy_key=policy_key)
+        host_obj = find_host_by_name(client, host_name)
+        if host_obj is None:
+            return {"status": "error", "error": f"Host '{host_name}' not found"}
+        cm = _get_config_manager(host_obj)
+        if cm is None:
+            return {"status": "error", "error": "configManager not available on this host"}
+        power_system = cm.powerSystem
+        if power_system is None:
+            return {"status": "error", "error": "powerSystem not available"}
+        power_system.ConfigurePowerPolicy(key=policy_key)
+        return {
+            "status": "success",
+            "host_name": host_name,
+            "policy_key": policy_key,
+            "message": "Power policy updated",
+        }
+
+    @mcp.tool()
+    @handle_tool_errors
+    def get_host_lockdown_mode(host_name: str) -> dict[str, Any]:
+        """Get lockdown mode of an ESXi host."""
+        logger.info("get_host_lockdown_mode", host_name=host_name)
+        host_obj = find_host_by_name(client, host_name)
+        if host_obj is None:
+            return {"status": "error", "error": f"Host '{host_name}' not found"}
+        cm = getattr(host_obj, "configManager", None)
+        if cm is None:
+            return {"status": "error", "error": "configManager not available on this host"}
+        host_access_manager = cm.hostAccessManager
+        if host_access_manager is None:
+            return {"status": "error", "error": "hostAccessManager not available"}
+        lockdown_mode = host_access_manager.lockdownMode
+        return {
+            "status": "success",
+            "host_name": host_name,
+            "lockdown_mode": str(lockdown_mode),
+        }
+
+    @mcp.tool()
+    @handle_tool_errors
+    def get_host_certificate_info(host_name: str) -> dict[str, Any]:
+        """Get SSL certificate details of an ESXi host."""
+        logger.info("get_host_certificate_info", host_name=host_name)
+        host_obj = find_host_by_name(client, host_name)
+        if host_obj is None:
+            return {"status": "error", "error": f"Host '{host_name}' not found"}
+        cm = _get_config_manager(host_obj)
+        if cm is None:
+            return {"status": "error", "error": "configManager not available on this host"}
+        cert_manager = cm.certificateManager
+        if cert_manager is None:
+            return {"status": "error", "error": "certificateManager not available on this host"}
+        cert_info = cert_manager.certificateInfo
+        if cert_info is None:
+            return {"status": "error", "error": "certificateInfo not available"}
+        return {
+            "status": "success",
+            "host_name": host_name,
+            "certificate": {
+                "issuer": cert_info.issuer,
+                "subject": cert_info.subject,
+                "notBefore": str(cert_info.notBefore),
+                "notAfter": str(cert_info.notAfter),
+                "status": cert_info.status,
+            },
+        }

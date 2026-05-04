@@ -12,6 +12,7 @@ from vsphere_mcp.tools._base import (
     require_confirm,
     wait_for_task,
 )
+from vsphere_mcp.utils.property_collector import collect_properties
 
 logger = get_logger(__name__)
 
@@ -68,3 +69,172 @@ def register_tag_tools(mcp: Any, client: VSphereClient) -> None:
                 }
             )
         return {"total": len(attrs), "attributes": attrs}
+
+    @mcp.tool()
+    @handle_tool_errors
+    @require_confirm(danger_level="medium")
+    def create_custom_attribute(
+        attribute_name: str,
+        entity_type: str | None = None,
+    ) -> dict[str, Any]:
+        """Create a custom attribute definition.
+
+        Args:
+            attribute_name: Name of the custom attribute.
+            entity_type: Type of entity ('vm', 'host', 'datastore', 'cluster'). None for all types.
+        """
+        logger.info("create_custom_attribute", attribute_name=attribute_name, entity_type=entity_type)
+        content = client.content
+        custom_fields = content.customFieldsManager
+        if not custom_fields:
+            return {"status": "error", "error": "Custom fields manager not available"}
+
+        type_map: dict[str, Any] = {
+            "vm": vim.VirtualMachine,
+            "host": vim.HostSystem,
+            "datastore": vim.Datastore,
+            "cluster": vim.ClusterComputeResource,
+        }
+
+        vim_type = None
+        if entity_type:
+            vim_type = type_map.get(entity_type)
+            if vim_type is None:
+                return {"status": "error", "error": f"Unknown entity_type '{entity_type}'"}
+
+        field = custom_fields.AddFieldDefinition(name=attribute_name, moType=vim_type)
+
+        return {
+            "status": "success",
+            "operation": "create_custom_attribute",
+            "attribute_name": attribute_name,
+            "key": field.key,
+            "entity_type": entity_type or "all",
+        }
+
+    @mcp.tool()
+    @handle_tool_errors
+    @require_confirm(danger_level="low")
+    def set_custom_attribute_value(
+        entity_type: str,
+        entity_name: str,
+        attribute_name: str,
+        value: str,
+    ) -> dict[str, Any]:
+        """Set a custom attribute value on an entity.
+
+        Args:
+            entity_type: Type of entity ('vm', 'host', 'datastore', 'cluster').
+            entity_name: Name of the entity.
+            attribute_name: Name of the custom attribute.
+            value: Value to set.
+        """
+        logger.info(
+            "set_custom_attribute_value",
+            entity_type=entity_type,
+            entity_name=entity_name,
+            attribute_name=attribute_name,
+        )
+        content = client.content
+        custom_fields = content.customFieldsManager
+        if not custom_fields:
+            return {"status": "error", "error": "Custom fields manager not available"}
+
+        type_map: dict[str, Any] = {
+            "vm": vim.VirtualMachine,
+            "host": vim.HostSystem,
+            "datastore": vim.Datastore,
+            "cluster": vim.ClusterComputeResource,
+        }
+        vim_type = type_map.get(entity_type)
+        if vim_type is None:
+            return {"status": "error", "error": f"Unknown entity_type '{entity_type}'"}
+
+        items = collect_properties(client, vim_type, ["name"])
+        entity = None
+        for item in items:
+            if item.get("name") == entity_name:
+                entity = item["_obj"]
+                break
+        if entity is None:
+            return {"status": "error", "error": f"{entity_type} '{entity_name}' not found"}
+
+        field_key = None
+        for field in custom_fields.field or []:
+            if field.name == attribute_name:
+                field_key = field.key
+                break
+        if field_key is None:
+            return {"status": "error", "error": f"Custom attribute '{attribute_name}' not found"}
+
+        custom_fields.SetField(entity=entity, key=field_key, value=value)
+
+        return {
+            "status": "success",
+            "operation": "set_custom_attribute_value",
+            "entity_type": entity_type,
+            "entity_name": entity_name,
+            "attribute_name": attribute_name,
+            "value": value,
+        }
+
+    @mcp.tool()
+    @handle_tool_errors
+    def get_entity_custom_attribute_values(
+        entity_type: str,
+        entity_name: str,
+    ) -> dict[str, Any]:
+        """Get all custom attribute values on an entity.
+
+        Args:
+            entity_type: Type of entity ('vm', 'host', 'datastore', 'cluster').
+            entity_name: Name of the entity.
+        """
+        logger.info(
+            "get_entity_custom_attribute_values",
+            entity_type=entity_type,
+            entity_name=entity_name,
+        )
+        content = client.content
+        custom_fields = content.customFieldsManager
+
+        type_map: dict[str, Any] = {
+            "vm": vim.VirtualMachine,
+            "host": vim.HostSystem,
+            "datastore": vim.Datastore,
+            "cluster": vim.ClusterComputeResource,
+        }
+        vim_type = type_map.get(entity_type)
+        if vim_type is None:
+            return {"status": "error", "error": f"Unknown entity_type '{entity_type}'"}
+
+        items = collect_properties(client, vim_type, ["name"])
+        entity = None
+        for item in items:
+            if item.get("name") == entity_name:
+                entity = item["_obj"]
+                break
+        if entity is None:
+            return {"status": "error", "error": f"{entity_type} '{entity_name}' not found"}
+
+        key_to_name: dict[int, str] = {}
+        if custom_fields:
+            for field in custom_fields.field or []:
+                key_to_name[field.key] = field.name
+
+        custom_values: list[dict[str, Any]] = []
+        for cv in entity.customValue or []:
+            custom_values.append(
+                {
+                    "attribute_name": key_to_name.get(cv.key, f"key_{cv.key}"),
+                    "key": cv.key,
+                    "value": cv.value,
+                }
+            )
+
+        return {
+            "entity_type": entity_type,
+            "entity_name": entity_name,
+            "total": len(custom_values),
+            "custom_attributes": custom_values,
+        }
