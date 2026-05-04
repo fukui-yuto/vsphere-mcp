@@ -376,6 +376,7 @@ def register_guest_ext_tools(mcp: Any, client: VSphereClient) -> None:
                 )
 
             return {
+                "status": "success",
                 "vm_name": vm_name,
                 "registry_path": registry_path,
                 "keys": key_list,
@@ -524,6 +525,7 @@ def register_guest_ext_tools(mcp: Any, client: VSphereClient) -> None:
                 )
 
             return {
+                "status": "success",
                 "vm_name": vm_name,
                 "guest_username": guest_username,
                 "total": len(alias_list),

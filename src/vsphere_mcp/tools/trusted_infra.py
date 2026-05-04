@@ -36,9 +36,12 @@ def register_trusted_infra_tools(mcp: Any, client: VSphereClient) -> None:
         logger.info("list_trusted_kms_providers")
         session, base_url = _get_rest_session(client)
         resp = session.get(f"{base_url}/api/vcenter/trusted-infrastructure/kms/services")
-        resp.raise_for_status()
+        if resp.status_code == 404:
+            return {"status": "unavailable", "message": "Trusted Infrastructure KMS service not available on this vCenter", "kms_providers": []}
+        if not resp.ok:
+            return {"status": "error", "error": f"KMS providers endpoint returned HTTP {resp.status_code}"}
         data: list[dict[str, Any]] = resp.json()
-        return {"total": len(data), "kms_providers": data}
+        return {"status": "success", "total": len(data), "kms_providers": data}
 
     @mcp.tool()
     @handle_tool_errors
@@ -53,9 +56,10 @@ def register_trusted_infra_tools(mcp: Any, client: VSphereClient) -> None:
         resp = session.get(
             f"{base_url}/api/vcenter/trusted-infrastructure/trusted-clusters/{cluster_id}/attestation"
         )
-        resp.raise_for_status()
+        if not resp.ok:
+            return {"status": "error", "error": f"Attestation report endpoint returned HTTP {resp.status_code}"}
         data: dict[str, Any] = resp.json()
-        return {"cluster_id": cluster_id, "attestation_report": data}
+        return {"status": "success", "cluster_id": cluster_id, "attestation_report": data}
 
     @mcp.tool()
     @handle_tool_errors
@@ -75,7 +79,8 @@ def register_trusted_infra_tools(mcp: Any, client: VSphereClient) -> None:
         resp = session.post(
             f"{base_url}/api/vcenter/trusted-infrastructure/hosts/{host_id}?action={action}"
         )
-        resp.raise_for_status()
+        if not resp.ok:
+            return {"status": "error", "error": f"Trust authority host action returned HTTP {resp.status_code}"}
         return {
             "status": "success",
             "operation": "configure_trust_authority_host",
@@ -90,9 +95,12 @@ def register_trusted_infra_tools(mcp: Any, client: VSphereClient) -> None:
         logger.info("list_trust_authority_hosts")
         session, base_url = _get_rest_session(client)
         resp = session.get(f"{base_url}/api/vcenter/trusted-infrastructure/hosts")
-        resp.raise_for_status()
+        if resp.status_code == 404:
+            return {"status": "unavailable", "message": "Trusted Infrastructure hosts service not available on this vCenter", "trust_authority_hosts": []}
+        if not resp.ok:
+            return {"status": "error", "error": f"Trust authority hosts endpoint returned HTTP {resp.status_code}"}
         data: list[dict[str, Any]] = resp.json()
-        return {"total": len(data), "trust_authority_hosts": data}
+        return {"status": "success", "total": len(data), "trust_authority_hosts": data}
 
     @mcp.tool()
     @handle_tool_errors
@@ -113,11 +121,15 @@ def register_trusted_infra_tools(mcp: Any, client: VSphereClient) -> None:
 
         container = client.content.rootFolder
         if container_name:
+            found_container = False
             for vim_type in (vim.Datacenter, vim.ClusterComputeResource, vim.Folder):
+                if found_container:
+                    break
                 items = collect_properties(client, vim_type, ["name"])
                 for item in items:
                     if item.get("name") == container_name:
                         container = item["_obj"]
+                        found_container = True
                         break
 
         switch_product_spec = None
@@ -150,7 +162,7 @@ def register_trusted_infra_tools(mcp: Any, client: VSphereClient) -> None:
                     "moref": host._moId if hasattr(host, "_moId") else None,
                 }
             )
-        return {"total": len(host_list), "compatible_hosts": host_list}
+        return {"status": "success", "total": len(host_list), "compatible_hosts": host_list}
 
     @mcp.tool()
     @handle_tool_errors
@@ -186,9 +198,10 @@ def register_trusted_infra_tools(mcp: Any, client: VSphereClient) -> None:
             return {"status": "error", "error": f"Failed to query DVS capabilities: {e}"}
 
         if capability is None:
-            return {"dvs_name": dvs_name, "capability": None}
+            return {"status": "success", "dvs_name": dvs_name, "capability": None}
 
         result: dict[str, Any] = {
+            "status": "success",
             "dvs_name": dvs_name,
             "nioc_supported": getattr(capability, "niocSupported", None),
             "vspan_supported": getattr(capability, "vspanSupported", None),
@@ -223,4 +236,4 @@ def register_trusted_infra_tools(mcp: Any, client: VSphereClient) -> None:
                     "description": getattr(spec, "description", None),
                 }
             )
-        return {"total": len(spec_list), "dvs_specs": spec_list}
+        return {"status": "success", "total": len(spec_list), "dvs_specs": spec_list}

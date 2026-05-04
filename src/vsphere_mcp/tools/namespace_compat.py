@@ -168,6 +168,7 @@ def register_namespace_compat_tools(mcp: Any, client: VSphereClient) -> None:
             return {"status": "error", "error": f"Compatibility check failed: {e}"}
 
         return {
+            "status": "success",
             "vm_name": vm_name,
             "host_name": host_name,
             "pool_name": pool_name,
@@ -231,6 +232,7 @@ def register_namespace_compat_tools(mcp: Any, client: VSphereClient) -> None:
             return {"status": "error", "error": f"Power-on compatibility check failed: {e}"}
 
         return {
+            "status": "success",
             "vm_name": vm_name,
             "host_name": host_name,
             "pool_name": pool_name,
@@ -252,7 +254,7 @@ def register_namespace_compat_tools(mcp: Any, client: VSphereClient) -> None:
         tenant_list: list[dict[str, Any]] = []
         for t in tenants or []:
             tenant_list.append({"tenant": str(t)})
-        return {"total": len(tenant_list), "tenants": tenant_list}
+        return {"status": "success", "total": len(tenant_list), "tenants": tenant_list}
 
     @mcp.tool()
     @handle_tool_errors
@@ -279,7 +281,7 @@ def register_namespace_compat_tools(mcp: Any, client: VSphereClient) -> None:
                     "moref": host._moId if hasattr(host, "_moId") else None,
                 }
             )
-        return {"lun_uuid": lun_uuid, "total": len(host_list), "hosts": host_list}
+        return {"status": "success", "lun_uuid": lun_uuid, "total": len(host_list), "hosts": host_list}
 
     @mcp.tool()
     @handle_tool_errors
@@ -307,6 +309,7 @@ def register_namespace_compat_tools(mcp: Any, client: VSphereClient) -> None:
             return {"status": "error", "error": f"Failed to get guest customization status: {e}"}
 
         return {
+            "status": "success",
             "vm_name": vm_name,
             "customization_status": str(status) if status else None,
         }
@@ -356,9 +359,10 @@ def register_namespace_compat_tools(mcp: Any, client: VSphereClient) -> None:
         except Exception as e:
             return {"status": "error", "error": f"Failed to get SNMP configuration: {e}"}
         if config is None:
-            return {"snmp_config": None}
+            return {"status": "success", "snmp_config": None}
 
         return {
+            "status": "success",
             "enabled": getattr(config, "enabled", None),
             "port": getattr(config, "port", None),
             "read_only_communities": list(getattr(config, "readOnlyCommunities", []) or []),
@@ -460,7 +464,7 @@ def register_namespace_compat_tools(mcp: Any, client: VSphereClient) -> None:
                     "service": str(svc.service) if hasattr(svc, "service") else None,
                 }
             )
-        return {"total": len(service_list), "services": service_list}
+        return {"status": "success", "total": len(service_list), "services": service_list}
 
     @mcp.tool()
     @handle_tool_errors
@@ -493,6 +497,7 @@ def register_namespace_compat_tools(mcp: Any, client: VSphereClient) -> None:
             return {"status": "error", "error": f"Failed to check cluster profile compliance: {e}"}
 
         return {
+            "status": "success",
             "cluster_name": cluster_name,
             "compliance_result": result,
         }
@@ -524,7 +529,7 @@ def register_namespace_compat_tools(mcp: Any, client: VSphereClient) -> None:
             except Exception:
                 profile_list.append({"moref": p._moId if hasattr(p, "_moId") else str(p)})
 
-        return {"total": len(profile_list), "cluster_profiles": profile_list}
+        return {"status": "success", "total": len(profile_list), "cluster_profiles": profile_list}
 
     @mcp.tool()
     @handle_tool_errors
@@ -535,7 +540,7 @@ def register_namespace_compat_tools(mcp: Any, client: VSphereClient) -> None:
         resp = session.get(f"{base_url}/api/vcenter/resource-pool")
         resp.raise_for_status()
         data: list[dict[str, Any]] = resp.json()
-        return {"total": len(data), "resource_pools": data}
+        return {"status": "success", "total": len(data), "resource_pools": data}
 
     @mcp.tool()
     @handle_tool_errors
@@ -546,7 +551,7 @@ def register_namespace_compat_tools(mcp: Any, client: VSphereClient) -> None:
         resp = session.get(f"{base_url}/api/session")
         resp.raise_for_status()
         data: dict[str, Any] = resp.json()
-        return {"session_info": data}
+        return {"status": "success", "session_info": data}
 
     @mcp.tool()
     @handle_tool_errors
@@ -557,7 +562,7 @@ def register_namespace_compat_tools(mcp: Any, client: VSphereClient) -> None:
         resp = session.get(f"{base_url}/api/vcenter/guest/customization-specs")
         resp.raise_for_status()
         data: list[dict[str, Any]] = resp.json()
-        return {"total": len(data), "customization_specs": data}
+        return {"status": "success", "total": len(data), "customization_specs": data}
 
     @mcp.tool()
     @handle_tool_errors

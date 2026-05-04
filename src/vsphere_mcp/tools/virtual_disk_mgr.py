@@ -416,31 +416,21 @@ def register_virtual_disk_mgr_tools(mcp: Any, client: VSphereClient) -> None:
         if ds_obj is None:
             return {"status": "error", "error": f"Datastore '{datastore_name}' not found"}
 
-        spec = vim.host.VmfsDatastoreExtendSpec(
-            diskUuid=device_path,
-            partition=vim.host.DiskPartitionInfo.Specification(
-                partitionFormat="gpt",
-                chs=None,
-                partition=[
-                    vim.host.DiskPartitionInfo.PartitionAttributes(
-                        partition=1,
-                        startSector=0,
-                        endSector=0,
-                        type="vmfs",
-                        logical=False,
-                        attributes=0,
-                        partitionAlignment=1,
-                    )
-                ],
-            ),
-        )
-
-        extend_method = getattr(datastore_system, "ExtendVmfsDatastore", None)
-        if extend_method is None:
-            return {"status": "error", "error": "ExtendVmfsDatastore not available on this host"}
+        # Try to use the datastore system's own extent spec generation
+        try:
+            extend_options = datastore_system.QueryVmfsDatastoreExtendOptions(
+                datastore=ds_obj,
+                devicePath=device_path,
+            )
+            if extend_options and len(extend_options) > 0:
+                spec = extend_options[0].spec
+            else:
+                return {"status": "error", "error": f"No valid extend options for device '{device_path}'"}
+        except Exception as e:
+            return {"status": "error", "error": f"Failed to query VMFS extend options: {e}"}
 
         try:
-            extend_method(datastore=ds_obj, spec=spec)
+            datastore_system.ExtendVmfsDatastore(datastore=ds_obj, spec=spec)
         except Exception as e:
             return {"status": "error", "error": f"Failed to extend VMFS datastore: {e}"}
 
@@ -478,10 +468,8 @@ def register_virtual_disk_mgr_tools(mcp: Any, client: VSphereClient) -> None:
         if dvs_obj is None:
             return {"status": "error", "error": f"DVSwitch '{dvs_name}' not found"}
 
-        selection = vim.dvs.EntityBackup.SelectionSet(
-            entityType="distributedVirtualSwitch",
-            key=dvs_uuid or dvs_name,
-        )
+        selection = vim.dvs.EntityBackup.EntitySelectionSet()
+        selection.entityType = "distributedVirtualSwitch"
 
         export_method = getattr(dvsm, "DVSManagerExportEntity_Task", None)
         if export_method is None:

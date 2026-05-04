@@ -73,9 +73,13 @@ def register_diagnostics_tools(mcp: Any, client: VSphereClient) -> None:
 
         task = diag_manager.GenerateLogBundles_Task(includeDefault=True, host=[host_obj])
         result = wait_for_task(task)
-        result["host_name"] = host_name
-        result["operation"] = "generate_host_support_bundle"
-        return result
+        if result.get("status") != "success":
+            return result
+        return {
+            "status": "success",
+            "operation": "generate_host_support_bundle",
+            "host_name": host_name,
+        }
 
     @mcp.tool()
     @handle_tool_errors
@@ -89,6 +93,7 @@ def register_diagnostics_tools(mcp: Any, client: VSphereClient) -> None:
         data: dict[str, Any] = resp.json() if resp.content else {}
 
         return {
+            "status": "success",
             "ceip_enabled": data.get("level") != "NONE" if isinstance(data, dict) else data,
             "raw": data,
         }
@@ -138,6 +143,7 @@ def register_diagnostics_tools(mcp: Any, client: VSphereClient) -> None:
                 )
 
         return {
+            "status": "success",
             "total": len(results),
             "results": results,
         }
@@ -154,6 +160,7 @@ def register_diagnostics_tools(mcp: Any, client: VSphereClient) -> None:
             if resp.ok:
                 data: dict[str, Any] = resp.json() if resp.content else {}
                 return {
+                    "status": "success",
                     "deployment_type": data.get("deployment_type"),
                     "deployment_size": data.get("deployment_size"),
                     "state": data.get("state"),
@@ -193,7 +200,7 @@ def register_diagnostics_tools(mcp: Any, client: VSphereClient) -> None:
                 }
             )
 
-        return {"total": len(extensions), "extensions": extensions}
+        return {"status": "success", "total": len(extensions), "extensions": extensions}
 
     @mcp.tool()
     @handle_tool_errors
@@ -213,6 +220,7 @@ def register_diagnostics_tools(mcp: Any, client: VSphereClient) -> None:
             return {"status": "error", "error": f"Extension '{extension_key}' not found"}
 
         return {
+            "status": "success",
             "key": ext.key,
             "version": ext.version if hasattr(ext, "version") else None,
             "description": (

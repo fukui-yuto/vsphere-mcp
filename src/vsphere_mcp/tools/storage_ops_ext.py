@@ -47,23 +47,19 @@ def register_storage_ops_ext_tools(mcp: Any, client: VSphereClient) -> None:
             caps = getattr(lun, "capabilities", None)
             vaai_caps: dict[str, Any] = {}
             if caps is not None:
-                # Filter for VAAI-related capability flags
-                vaai_caps = {
-                    "hardware_accelerated_locking": getattr(caps, "updateCompliant", None),
-                    "hardware_accelerated_copy": getattr(caps, "seesTeamBackend", None),
-                    "hardware_accelerated_zeroing": getattr(caps, "seesTeamBackend", None),
-                }
-                # Check for the standard VAAI capability attributes
-                for attr in ("hardwareAcceleratedLocking", "hardwareAcceleratedCopy", "hardwareAcceleratedZeroing"):
-                    val = getattr(caps, attr, None)
-                    if val is not None:
-                        key = attr[0].lower() + attr[1:]
-                        vaai_caps[key] = val
-                # Remove None-valued defaults if actual attrs were found
-                if any(k in vaai_caps for k in ("hardwareAcceleratedLocking", "hardwareAcceleratedCopy", "hardwareAcceleratedZeroing")):
-                    vaai_caps.pop("hardware_accelerated_locking", None)
-                    vaai_caps.pop("hardware_accelerated_copy", None)
-                    vaai_caps.pop("hardware_accelerated_zeroing", None)
+                # VAAI capabilities are exposed as individual VScsiLunCapability entries
+                if isinstance(caps, list):
+                    for cap in caps:
+                        cap_key = getattr(cap, "key", "")
+                        cap_val = getattr(cap, "value", None)
+                        if cap_key:
+                            vaai_caps[cap_key] = cap_val
+                else:
+                    # Some API versions expose capabilities as a flat object
+                    for attr_name in dir(caps):
+                        if attr_name.startswith("_") or callable(getattr(caps, attr_name, None)):
+                            continue
+                        vaai_caps[attr_name] = getattr(caps, attr_name, None)
 
             lun_vaai_info.append({
                 "device_name": lun.deviceName,

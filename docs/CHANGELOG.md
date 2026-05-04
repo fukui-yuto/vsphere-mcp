@@ -224,7 +224,7 @@
 | 122 | クラスタ設定 | `update_resource_pool` | リソースプール更新 | 高 |
 | 123 | クラスタ設定 | `delete_resource_pool` | リソースプール削除 | 高 |
 | 124 | クラスタ設定 | `list_cluster_host_vm_groups` | DRS ホスト/VM グループ一覧 | - |
-| 125 | ���ォルダ | `list_folders` | フォルダ一覧（パス付き） | - |
+| 125 | フォルダ | `list_folders` | フォルダ一覧（パス付き） | - |
 | 126 | フォルダ | `create_folder` | フォルダ作成 | 中 |
 | 127 | フォルダ | `move_vm_to_folder` | VM をフォルダに移動 | 中 |
 | 128 | DS ブラウザ | `browse_datastore` | データストアファイル参照 | - |

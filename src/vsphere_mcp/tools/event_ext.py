@@ -6,7 +6,7 @@ from pyVmomi import vim
 
 from vsphere_mcp.client import VSphereClient
 from vsphere_mcp.logging import get_logger
-from vsphere_mcp.tools._base import find_vm_with_props, handle_tool_errors, require_confirm, wait_for_task
+from vsphere_mcp.tools._base import handle_tool_errors, require_confirm
 from vsphere_mcp.utils.property_collector import collect_properties
 
 logger = get_logger(__name__)
@@ -136,6 +136,7 @@ def register_event_ext_tools(mcp: Any, client: VSphereClient) -> None:
             )
 
         return {
+            "status": "success",
             "entity_type": entity_type,
             "entity_name": entity_name,
             "total": len(events),
@@ -204,6 +205,7 @@ def register_event_ext_tools(mcp: Any, client: VSphereClient) -> None:
         except Exception as e:
             return {"status": "error", "error": f"Failed to export spec '{spec_name}': {e}"}
         return {
+            "status": "success",
             "spec_name": spec_name,
             "xml": xml_content,
         }
@@ -340,6 +342,7 @@ def register_event_ext_tools(mcp: Any, client: VSphereClient) -> None:
                 child_values.append(child_entry)
 
         return {
+            "status": "success",
             "entity_type": entity_type,
             "entity_name": entity_name,
             "metric_id": metric_id,
@@ -373,6 +376,7 @@ def register_event_ext_tools(mcp: Any, client: VSphereClient) -> None:
         if current is None:
             return {"status": "error", "error": "No current session available"}
         return {
+            "status": "success",
             "session_key": current.key if hasattr(current, "key") else None,
             "user_name": current.userName if hasattr(current, "userName") else None,
             "full_name": current.fullName if hasattr(current, "fullName") else None,
@@ -426,6 +430,7 @@ def register_event_ext_tools(mcp: Any, client: VSphereClient) -> None:
             )
 
         return {
+            "status": "success",
             "entity_type": entity_type,
             "entity_name": entity_name,
             "total": len(states),
@@ -519,6 +524,7 @@ def register_event_ext_tools(mcp: Any, client: VSphereClient) -> None:
             properties.append({"key": prop.key, "value": str(prop.value)})
 
         return {
+            "status": "success",
             "name": getattr(info, "name", None),
             "product_name": getattr(info, "productName", None),
             "product_version": getattr(info, "productVersion", None),
@@ -566,6 +572,7 @@ def register_event_ext_tools(mcp: Any, client: VSphereClient) -> None:
             )
 
         return {
+            "status": "success",
             "source_available": source_available,
             "reserved": reserved,
         }

@@ -436,11 +436,11 @@ def register_search_index_tools(mcp: Any, client: VSphereClient) -> None:
         return {
             "status": "success",
             "host_name": host_name,
-            "time_zone": getattr(datetime_info, "timeZone", {}) and {
-                "key": getattr(getattr(datetime_info, "timeZone", None), "key", None),
-                "name": getattr(getattr(datetime_info, "timeZone", None), "name", None),
-                "offset": getattr(getattr(datetime_info, "timeZone", None), "gmtOffset", None),
-            },
+            "time_zone": (lambda tz: {
+                "key": getattr(tz, "key", None),
+                "name": getattr(tz, "name", None),
+                "offset": getattr(tz, "gmtOffset", None),
+            } if tz is not None else None)(getattr(datetime_info, "timeZone", None)),
             "ntp_servers": ntp_servers,
             "ntp_config_file": ntp_config_file,
             "ntp_service": service_info,

@@ -91,8 +91,11 @@ def register_cluster_ops_ext_tools(mcp: Any, client: VSphereClient) -> None:
         task = cluster.ReconfigureComputeResource_Task(spec=spec, modify=True)
         result = wait_for_task(task)
 
+        if result["status"] != "success":
+            return result
+
         return {
-            "status": result.get("status"),
+            "status": "success",
             "operation": "set_drs_vm_override",
             "cluster_name": cluster_name,
             "vm_name": vm_name,
@@ -125,10 +128,11 @@ def register_cluster_ops_ext_tools(mcp: Any, client: VSphereClient) -> None:
             overrides.append({
                 "vm_name": vm_name,
                 "enabled": getattr(entry, "enabled", None),
-                "behavior": str(getattr(entry, "behavior", None)),
+                "behavior": str(val) if (val := getattr(entry, "behavior", None)) is not None else None,
             })
 
         return {
+            "status": "success",
             "cluster_name": cluster_name,
             "total": len(overrides),
             "overrides": overrides,
@@ -187,8 +191,11 @@ def register_cluster_ops_ext_tools(mcp: Any, client: VSphereClient) -> None:
         task = cluster.ReconfigureComputeResource_Task(spec=spec, modify=True)
         result = wait_for_task(task)
 
+        if result["status"] != "success":
+            return result
+
         return {
-            "status": result.get("status"),
+            "status": "success",
             "operation": "set_ha_vm_override",
             "cluster_name": cluster_name,
             "vm_name": vm_name,
@@ -222,12 +229,13 @@ def register_cluster_ops_ext_tools(mcp: Any, client: VSphereClient) -> None:
             das_settings = getattr(entry, "dasSettings", None)
             overrides.append({
                 "vm_name": vm_name,
-                "restart_priority": str(getattr(das_settings, "restartPriority", None)) if das_settings else None,
-                "isolation_response": str(getattr(das_settings, "isolationResponse", None)) if das_settings else None,
-                "vm_monitoring": str(getattr(das_settings, "vmMonitoring", None)) if das_settings else None,
+                "restart_priority": (str(val) if (val := getattr(das_settings, "restartPriority", None)) is not None else None) if das_settings else None,
+                "isolation_response": (str(val) if (val := getattr(das_settings, "isolationResponse", None)) is not None else None) if das_settings else None,
+                "vm_monitoring": (str(val) if (val := getattr(das_settings, "vmMonitoring", None)) is not None else None) if das_settings else None,
             })
 
         return {
+            "status": "success",
             "cluster_name": cluster_name,
             "total": len(overrides),
             "overrides": overrides,
@@ -287,8 +295,11 @@ def register_cluster_ops_ext_tools(mcp: Any, client: VSphereClient) -> None:
         task = cluster.ReconfigureComputeResource_Task(spec=spec, modify=True)
         result = wait_for_task(task)
 
+        if result["status"] != "success":
+            return result
+
         return {
-            "status": result.get("status"),
+            "status": "success",
             "operation": "configure_ha_heartbeat_datastores",
             "cluster_name": cluster_name,
             "policy": policy,
@@ -404,6 +415,7 @@ def register_cluster_ops_ext_tools(mcp: Any, client: VSphereClient) -> None:
         storage_used_mb = getattr(usage, "storageUsedMB", None)
 
         result: dict[str, Any] = {
+            "status": "success",
             "cluster_name": cluster_name,
             "cpu": {
                 "capacity_mhz": cpu_capacity_mhz,
@@ -492,8 +504,11 @@ def register_cluster_ops_ext_tools(mcp: Any, client: VSphereClient) -> None:
         task = storage_pod.ReconfigureStoragePod_Task(spec=spec, modify=True)
         result = wait_for_task(task)
 
+        if result["status"] != "success":
+            return result
+
         return {
-            "status": result.get("status"),
+            "status": "success",
             "operation": "set_storage_drs_vm_override",
             "pod_name": pod_name,
             "vm_name": vm_name,
@@ -524,6 +539,7 @@ def register_cluster_ops_ext_tools(mcp: Any, client: VSphereClient) -> None:
         pod_config = getattr(storage_pod, "podStorageDrsEntry", None)
         if pod_config is None:
             return {
+                "status": "success",
                 "pod_name": pod_name,
                 "total": 0,
                 "overrides": [],
@@ -540,10 +556,11 @@ def register_cluster_ops_ext_tools(mcp: Any, client: VSphereClient) -> None:
             overrides.append({
                 "vm_name": vm_name,
                 "enabled": getattr(entry, "enabled", None),
-                "behavior": str(getattr(entry, "behavior", None)),
+                "behavior": str(val) if (val := getattr(entry, "behavior", None)) is not None else None,
             })
 
         return {
+            "status": "success",
             "pod_name": pod_name,
             "total": len(overrides),
             "overrides": overrides,

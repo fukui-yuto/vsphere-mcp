@@ -4,6 +4,7 @@ from typing import Any
 
 import requests
 import urllib3
+from pyVmomi import vim
 
 from vsphere_mcp.client import VSphereClient
 from vsphere_mcp.logging import get_logger
@@ -322,8 +323,6 @@ def register_security_tools(mcp: Any, client: VSphereClient) -> None:
                 string "" to remove the existing banner.
         """
         logger.info("set_login_banner")
-
-        from pyVmomi import vim
 
         option = vim.option.OptionValue(key="vpxd.motd", value=message)
         try:

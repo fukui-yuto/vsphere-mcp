@@ -39,7 +39,7 @@ def register_vcenter_rest_ext_tools(mcp: Any, client: VSphereClient) -> None:
         resp = session.get(f"{base_url}/api/vcenter/content/registries/harbor")
         resp.raise_for_status()
         data: list[dict[str, Any]] = resp.json()
-        return {"total": len(data), "registries": data}
+        return {"status": "success", "total": len(data), "registries": data}
 
     @mcp.tool()
     @handle_tool_errors
@@ -54,7 +54,7 @@ def register_vcenter_rest_ext_tools(mcp: Any, client: VSphereClient) -> None:
         resp = session.get(f"{base_url}/api/vcenter/datastore/{datastore_id}/default-policy")
         resp.raise_for_status()
         data: dict[str, Any] = resp.json()
-        return {"datastore_id": datastore_id, "default_policy": data}
+        return {"status": "success", "datastore_id": datastore_id, "default_policy": data}
 
     @mcp.tool()
     @handle_tool_errors
@@ -111,7 +111,7 @@ def register_vcenter_rest_ext_tools(mcp: Any, client: VSphereClient) -> None:
         resp = session.get(f"{base_url}/api/vcenter/hvc/links")
         resp.raise_for_status()
         data: list[dict[str, Any]] = resp.json()
-        return {"total": len(data), "hvc_links": data}
+        return {"status": "success", "total": len(data), "hvc_links": data}
 
     @mcp.tool()
     @handle_tool_errors
@@ -122,7 +122,7 @@ def register_vcenter_rest_ext_tools(mcp: Any, client: VSphereClient) -> None:
         resp = session.get(f"{base_url}/api/vcenter/consumption-domains/zones")
         resp.raise_for_status()
         data: list[dict[str, Any]] = resp.json()
-        return {"total": len(data), "zones": data}
+        return {"status": "success", "total": len(data), "zones": data}
 
     @mcp.tool()
     @handle_tool_errors
@@ -133,7 +133,7 @@ def register_vcenter_rest_ext_tools(mcp: Any, client: VSphereClient) -> None:
         resp = session.get(f"{base_url}/api/vcenter/deployment")
         resp.raise_for_status()
         data: dict[str, Any] = resp.json()
-        return {"deployment_info": data}
+        return {"status": "success", "deployment_info": data}
 
     @mcp.tool()
     @handle_tool_errors
@@ -187,7 +187,7 @@ def register_vcenter_rest_ext_tools(mcp: Any, client: VSphereClient) -> None:
         resp = session.get(f"{base_url}/api/vcenter/vm/{vm_id}/guest/power")
         resp.raise_for_status()
         data: dict[str, Any] = resp.json()
-        return {"vm_id": vm_id, "guest_power_state": data}
+        return {"status": "success", "vm_id": vm_id, "guest_power_state": data}
 
     @mcp.tool()
     @handle_tool_errors
@@ -208,7 +208,7 @@ def register_vcenter_rest_ext_tools(mcp: Any, client: VSphereClient) -> None:
         )
         resp.raise_for_status()
         data: dict[str, Any] = resp.json()
-        return {"compliance_data": data}
+        return {"status": "success", "compliance_data": data}
 
     @mcp.tool()
     @handle_tool_errors
@@ -226,4 +226,4 @@ def register_vcenter_rest_ext_tools(mcp: Any, client: VSphereClient) -> None:
         resp = session.get(f"{base_url}/api/vcenter/network", params=params)
         resp.raise_for_status()
         data: list[dict[str, Any]] = resp.json()
-        return {"total": len(data), "networks": data}
+        return {"status": "success", "total": len(data), "networks": data}

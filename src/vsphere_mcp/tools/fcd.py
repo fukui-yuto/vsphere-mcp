@@ -221,7 +221,7 @@ def register_fcd_tools(mcp: Any, client: VSphereClient) -> None:
             "name": getattr(config, "name", None),
             "capacity_mb": getattr(config, "capacityInMB", None),
             "keep_after_delete_vm": getattr(config, "keepAfterDeleteVm", None),
-            "create_time": str(getattr(config, "createTime", None)),
+            "create_time": str(ct) if (ct := getattr(config, "createTime", None)) is not None else None,
             "backing": backing_info,
         }
 
@@ -489,7 +489,7 @@ def register_fcd_tools(mcp: Any, client: VSphereClient) -> None:
             snapshots.append({
                 "snapshot_id": getattr(snap_id_val, "id", str(snap_id_val)) if snap_id_val else None,
                 "description": getattr(snap, "description", None),
-                "create_time": str(getattr(snap, "createTime", None)),
+                "create_time": str(ct) if (ct := getattr(snap, "createTime", None)) is not None else None,
             })
 
         return {

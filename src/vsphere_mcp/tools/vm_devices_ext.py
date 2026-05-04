@@ -173,7 +173,7 @@ def register_vm_devices_ext_tools(mcp: Any, client: VSphereClient) -> None:
 
             ports.append(entry)
 
-        return {"vm_name": vm_name, "serial_ports": ports}
+        return {"status": "success", "vm_name": vm_name, "serial_ports": ports}
 
     @mcp.tool()
     @handle_tool_errors
@@ -502,12 +502,19 @@ def register_vm_devices_ext_tools(mcp: Any, client: VSphereClient) -> None:
         if found is None:
             return {"status": "error", "error": f"VM '{vm_name}' not found"}
 
-        folder_spec = vim.vm.SharedFolderSpec()
-        folder_spec.name = share_name
-        folder_spec.hostPath = host_path
-        folder_spec.writable = writable
+        # HGFS shared folders are configured via VM extraConfig options
+        extra_config = [
+            vim.option.OptionValue(key="isolation.tools.hgfs.disable", value="FALSE"),
+            vim.option.OptionValue(key="sharedFolder0.present", value="TRUE"),
+            vim.option.OptionValue(key="sharedFolder0.enabled", value="TRUE"),
+            vim.option.OptionValue(key="sharedFolder0.readAccess", value="TRUE"),
+            vim.option.OptionValue(key="sharedFolder0.writeAccess", value=str(writable).upper()),
+            vim.option.OptionValue(key="sharedFolder0.hostPath", value=host_path),
+            vim.option.OptionValue(key="sharedFolder0.guestName", value=share_name),
+            vim.option.OptionValue(key="sharedFolder.maxNum", value="1"),
+        ]
 
-        config_spec = vim.vm.ConfigSpec(sharedFolder=[folder_spec])
+        config_spec = vim.vm.ConfigSpec(extraConfig=extra_config)
         task = found["_obj"].Reconfigure(spec=config_spec)
         result = wait_for_task(task)
         result["vm_name"] = vm_name

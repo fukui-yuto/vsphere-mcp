@@ -65,14 +65,17 @@ def register_sdrs_tools(mcp: Any, client: VSphereClient) -> None:
                     break
 
         result = client.content.storageResourceManager.RecommendDatastores(storageSpec=storage_spec)
+        if result is None:
+            return {"status": "success", "pod_name": pod_name, "recommendation_count": 0, "recommendations": []}
 
         recommendations: list[dict[str, Any]] = []
-        for rec in result.recommendations or []:
+        for rec in getattr(result, "recommendations", None) or []:
             actions: list[dict[str, Any]] = []
             for action in rec.action or []:
+                dest = getattr(action, "destination", None)
                 actions.append({
                     "type": type(action).__name__,
-                    "destination": str(getattr(action, "destination", None)),
+                    "destination": str(dest) if dest is not None else None,
                 })
             recommendations.append({
                 "key": rec.key,
@@ -123,7 +126,10 @@ def register_sdrs_tools(mcp: Any, client: VSphereClient) -> None:
         session, base_url = _get_rest_session(client)
 
         resp = session.get(f"{base_url}/api/vcenter/compute-policies")
-        resp.raise_for_status()
+        if not resp.ok:
+            if resp.status_code == 404:
+                return {"status": "unavailable", "message": "Compute policies endpoint is not available on this vCenter version"}
+            return {"status": "error", "error": f"Failed to list compute policies (HTTP {resp.status_code})"}
         data: list[dict[str, Any]] = resp.json()
 
         return {
@@ -157,7 +163,10 @@ def register_sdrs_tools(mcp: Any, client: VSphereClient) -> None:
             body["capability"] = capability
 
         resp = session.post(f"{base_url}/api/vcenter/compute-policies", json=body)
-        resp.raise_for_status()
+        if not resp.ok:
+            if resp.status_code == 404:
+                return {"status": "unavailable", "message": "Compute policies endpoint is not available on this vCenter version"}
+            return {"status": "error", "error": f"Failed to create compute policy (HTTP {resp.status_code})"}
         result: dict[str, Any] = resp.json() if resp.content else {}
 
         return {
@@ -180,7 +189,10 @@ def register_sdrs_tools(mcp: Any, client: VSphereClient) -> None:
         session, base_url = _get_rest_session(client)
 
         resp = session.get(f"{base_url}/api/vcenter/compute-policies/{policy_id}")
-        resp.raise_for_status()
+        if not resp.ok:
+            if resp.status_code == 404:
+                return {"status": "unavailable", "message": f"Compute policy '{policy_id}' not found"}
+            return {"status": "error", "error": f"Failed to get compute policy (HTTP {resp.status_code})"}
         data: dict[str, Any] = resp.json()
 
         return {
@@ -202,7 +214,10 @@ def register_sdrs_tools(mcp: Any, client: VSphereClient) -> None:
         session, base_url = _get_rest_session(client)
 
         resp = session.delete(f"{base_url}/api/vcenter/compute-policies/{policy_id}")
-        resp.raise_for_status()
+        if not resp.ok:
+            if resp.status_code == 404:
+                return {"status": "unavailable", "message": f"Compute policy '{policy_id}' not found"}
+            return {"status": "error", "error": f"Failed to delete compute policy (HTTP {resp.status_code})"}
 
         return {
             "status": "success",

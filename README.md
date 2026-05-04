@@ -428,6 +428,46 @@ vsphere-mcp/
       host_profile.py             # ホストプロファイル（2 個）
       license.py                  # ライセンス管理（4 個）
       fault_tolerance.py          # フォールトトレランス（3 個）
+      storage_policy.py           # ストレージポリシー（7 個）
+      ovf.py                      # OVF/OVA デプロイ（5 個）
+      vsan.py                     # vSAN 管理（9 個）
+      vlcm.py                     # vLCM パッチ管理（8 個）
+      encryption.py               # VM 暗号化（7 個）
+      certificate.py              # 証明書管理（8 個）
+      nioc.py                     # NIOC（5 個）
+      instant_clone.py            # インスタントクローン他（5 個）
+      content_library_ext.py      # コンテンツライブラリ拡張（8 個）
+      vcenter_services.py         # vCenter サービス（10 個）
+      pci_passthrough.py          # PCI/vGPU パススルー（9 個）
+      dvs_advanced.py             # DVS 高度機能（6 個）
+      iscsi_config.py             # iSCSI 拡張（5 個）
+      tanzu.py                    # Tanzu（7 個）
+      vm_monitoring.py            # VM モニタリング（5 個）
+      datastore_ext.py            # データストア拡張（2 個）
+      vm_devices_ext.py           # VM デバイス拡張（12 個）
+      vm_ops_ext.py               # VM 操作拡張（11 個）
+      cluster_ops_ext.py          # クラスタ操作拡張（12 個）
+      host_ops_ext.py             # ホスト操作拡張（18 個）
+      network_ext.py              # ネットワーク拡張（13 個）
+      storage_ops_ext.py          # ストレージ操作拡張（8 個）
+      security.py                 # セキュリティ・ID管理（10 個）
+      diagnostics.py              # 監視・診断・拡張管理（11 個）
+      vapp_ext.py                 # vApp 拡張（6 個）
+      guest_ext.py                # ゲスト操作拡張（8 個）
+      sdrs.py                     # SDRS・コンピュートポリシー（6 個）
+      appliance_health.py         # アプライアンスヘルス（12 個）
+      appliance_update.py         # アプライアンス更新・ネットワーク（6 個）
+      search_index.py             # 検索インデックス・その他（17 個）
+      esxi_accounts.py            # ESXi アカウント管理（5 個）
+      virtual_disk_mgr.py         # 仮想ディスク管理（10 個）
+      fcd.py                      # First Class Disk（10 個）
+      vm_methods_ext.py           # VM メソッド拡張（6 個）
+      host_mgr_ext.py             # ホストマネージャー拡張（10 個）
+      vcenter_rest_ext.py         # vCenter REST 拡張（11 個）
+      trusted_infra.py            # Trusted Infrastructure（7 個）
+      event_ext.py                # イベント・カスタマイズ拡張（13 個）
+      vm_boot_rest.py             # VM ブート・Tools REST（4 個）
+      namespace_compat.py         # Namespace・互換性チェック（18 個）
     utils/
       property_collector.py       # PropertyCollector による効率的プロパティ取得
   tests/                          # vcsim 対象の統合テスト
@@ -437,7 +477,7 @@ vsphere-mcp/
     CONTRIBUTING.md               # コントリビュートガイド
     SECURITY.md                   # セキュリティポリシー
     CHANGELOG.md                  # 変更履歴
-    TOOLS.md                      # 全 301 ツール詳細一覧
+    TOOLS.md                      # 全 657 ツール詳細一覧
   .github/
     workflows/ci.yml              # GitHub Actions CI
     dependabot.yml                # Dependabot 設定（pip / GitHub Actions）

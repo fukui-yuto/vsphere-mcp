@@ -204,14 +204,24 @@ def register_host_ops_ext_tools(mcp: Any, client: VSphereClient) -> None:
         if configure_method is None:
             return {"status": "error", "error": "ConfigureNetworkCoreDump not available on this host"}
 
-        spec = vim.host.DiagnosticSystem.NetworkCoreDumpConfig(
-            enabled=True,
-            interfaceName=interface_name,
-            serverIp=server_ip,
-            serverPort=server_port,
-        )
-
-        configure_method(networkCoreDumpConfig=spec)
+        try:
+            configure_method(
+                networkConfig=vim.host.NetDumpConfig(
+                    enabled=True,
+                    vmknicName=interface_name,
+                    serverIp=server_ip,
+                    serverPort=server_port,
+                )
+            )
+        except (AttributeError, TypeError):
+            try:
+                configure_method(
+                    interfaceName=interface_name,
+                    serverIp=server_ip,
+                    serverPort=server_port,
+                )
+            except Exception as exc:
+                return {"status": "error", "error": f"Failed to configure network coredump: {exc}"}
 
         return {
             "status": "success",
@@ -430,7 +440,7 @@ def register_host_ops_ext_tools(mcp: Any, client: VSphereClient) -> None:
         if adv_config is None:
             return {"status": "error", "error": "advancedOption manager not available on this host"}
 
-        scratch_path = ds_url if ds_url else f"[{datastore_name}]"
+        scratch_path = f"[{datastore_name}]"
         option = vim.option.OptionValue(key="ScratchConfig.CurrentScratchLocation", value=scratch_path)
         adv_config.UpdateValues(value=[option])
 
@@ -556,7 +566,7 @@ def register_host_ops_ext_tools(mcp: Any, client: VSphereClient) -> None:
                 "version": getattr(pkg, "version", None),
                 "vendor": getattr(pkg, "vendor", None),
                 "description": getattr(pkg, "description", None),
-                "installDate": str(getattr(pkg, "installDate", None)),
+                "installDate": str(d) if (d := getattr(pkg, "installDate", None)) is not None else None,
                 "acceptanceLevel": getattr(pkg, "acceptanceLevel", None),
             })
 
@@ -600,7 +610,7 @@ def register_host_ops_ext_tools(mcp: Any, client: VSphereClient) -> None:
                 "status": getattr(hba, "status", None),
                 "nodeWorldWideName": getattr(hba, "nodeWorldWideName", None),
                 "portWorldWideName": getattr(hba, "portWorldWideName", None),
-                "portType": str(getattr(hba, "portType", None)),
+                "portType": str(val) if (val := getattr(hba, "portType", None)) is not None else None,
                 "speed": getattr(hba, "speed", None),
             })
 
@@ -694,14 +704,14 @@ def register_host_ops_ext_tools(mcp: Any, client: VSphereClient) -> None:
         for dc in getattr(graphics_config, "deviceType", None) or []:
             device_configs.append({
                 "deviceId": getattr(dc, "deviceId", None),
-                "graphicsType": str(getattr(dc, "graphicsType", None)),
+                "graphicsType": str(val) if (val := getattr(dc, "graphicsType", None)) is not None else None,
             })
 
         return {
             "status": "success",
             "host_name": host_name,
-            "host_default_graphics_type": str(getattr(graphics_config, "hostDefaultGraphicsType", None)),
-            "shared_passthrough_gpu_types": str(getattr(graphics_config, "sharedPassthruGpuTypes", None)),
+            "host_default_graphics_type": str(val) if (val := getattr(graphics_config, "hostDefaultGraphicsType", None)) is not None else None,
+            "shared_passthrough_gpu_types": str(val) if (val := getattr(graphics_config, "sharedPassthruGpuTypes", None)) is not None else None,
             "device_type_configs": device_configs,
         }
 

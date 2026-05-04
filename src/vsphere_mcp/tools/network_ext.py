@@ -510,17 +510,17 @@ def register_network_ext_tools(mcp: Any, client: VSphereClient) -> None:
         datacenter_name: str,
         pool_name: str,
         dns_domain: str = "",
-        dns_servers: list[str] = [],
-        ntp_servers: list[str] = [],
+        dns_search_domains: list[str] | None = None,
     ) -> dict[str, Any]:
-        """Configure network protocol profile settings on an IP pool (DNS domain, DNS servers, NTP servers).
+        """Configure network protocol profile settings on an IP pool (DNS domain, DNS search domains).
+
+        Note: vSphere IpPool does not have a direct NTP field; only DNS settings can be configured.
 
         Args:
             datacenter_name: Name of the datacenter.
             pool_name: Name of the IP pool to update.
             dns_domain: DNS domain name for the pool (e.g. "example.com"). Leave empty to skip.
-            dns_servers: List of DNS server IP addresses. Leave empty to skip.
-            ntp_servers: List of NTP server addresses. Leave empty to skip.
+            dns_search_domains: List of DNS search domain suffixes (e.g. ["example.com", "corp.local"]). Leave empty to skip.
         """
         logger.info(
             "configure_network_protocol_profile",
@@ -548,13 +548,8 @@ def register_network_ext_tools(mcp: Any, client: VSphereClient) -> None:
 
         if dns_domain:
             target_pool.dnsDomain = dns_domain
-        if dns_servers:
-            target_pool.dnsSearchPath = ",".join(dns_servers)
-        if ntp_servers:
-            target_pool.hostPrefix = None  # preserve existing
-            # NTP is stored in the networkAssociation or custom fields; use availableIpv4Addresses as proxy
-            # vSphere IpPool does not have a direct NTP field; store in dnsDomain extension comment
-            logger.info("configure_network_protocol_profile_ntp_note", note="NTP servers noted but vSphere IpPool has no direct NTP field")
+        if dns_search_domains:
+            target_pool.dnsSearchPath = ",".join(dns_search_domains)
 
         ip_pool_manager.UpdateIpPool(dc=dc_obj, pool=target_pool)
 
@@ -565,9 +560,7 @@ def register_network_ext_tools(mcp: Any, client: VSphereClient) -> None:
             "pool_name": pool_name,
             "pool_id": getattr(target_pool, "id", None),
             "dns_domain": dns_domain,
-            "dns_servers": dns_servers,
-            "ntp_servers": ntp_servers,
-            "note": "NTP servers are not directly stored on vSphere IpPool objects; dns_domain and dns_servers were applied.",
+            "dns_search_domains": dns_search_domains or [],
         }
 
     @mcp.tool()

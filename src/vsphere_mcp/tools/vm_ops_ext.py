@@ -7,7 +7,7 @@ from pyVmomi import vim
 
 from vsphere_mcp.client import VSphereClient
 from vsphere_mcp.logging import get_logger
-from vsphere_mcp.tools._base import find_vm_with_props, handle_tool_errors, require_confirm, wait_for_task
+from vsphere_mcp.tools._base import find_host_by_name, find_vm_with_props, handle_tool_errors, require_confirm, wait_for_task
 from vsphere_mcp.utils.property_collector import collect_properties
 
 logger = get_logger(__name__)
@@ -18,15 +18,6 @@ def _find_datacenter_by_name(client: VSphereClient, datacenter_name: str) -> Any
     items = collect_properties(client, vim.Datacenter, ["name"])
     for item in items:
         if item.get("name") == datacenter_name:
-            return item["_obj"]
-    return None
-
-
-def _find_host_by_name(client: VSphereClient, host_name: str) -> Any | None:
-    """Find an ESXi host managed object by name."""
-    items = collect_properties(client, vim.HostSystem, ["name"])
-    for item in items:
-        if item.get("name") == host_name:
             return item["_obj"]
     return None
 
@@ -50,7 +41,7 @@ def register_vm_ops_ext_tools(mcp: Any, client: VSphereClient) -> None:
         if found is None:
             return {"status": "error", "error": f"VM '{vm_name}' not found"}
 
-        host_obj = _find_host_by_name(client, target_host)
+        host_obj = find_host_by_name(client, target_host)
         if host_obj is None:
             return {"status": "error", "error": f"Host '{target_host}' not found"}
 
@@ -114,7 +105,7 @@ def register_vm_ops_ext_tools(mcp: Any, client: VSphereClient) -> None:
         kwargs: dict[str, Any] = {"vm": found["_obj"]}
 
         if target_host:
-            host_obj = _find_host_by_name(client, target_host)
+            host_obj = find_host_by_name(client, target_host)
             if host_obj is None:
                 return {"status": "error", "error": f"Host '{target_host}' not found"}
             kwargs["host"] = host_obj
@@ -301,7 +292,7 @@ def register_vm_ops_ext_tools(mcp: Any, client: VSphereClient) -> None:
         if vdm is None:
             return {"status": "error", "error": "virtualDiskManager not available on this vCenter"}
 
-        task = vdm.ShrinkVirtualDisk_Task(name=disk_path, copy=False)
+        task = vdm.ShrinkVirtualDisk_Task(name=disk_path)
         result = wait_for_task(task)
         result["vm_name"] = vm_name
         result["disk_path"] = disk_path
@@ -520,13 +511,16 @@ def register_vm_ops_ext_tools(mcp: Any, client: VSphereClient) -> None:
         else:
             run_at = datetime.now(tz=timezone.utc) + timedelta(minutes=5)
 
-        operation_map = {
-            "powerOn": vim.vm.PowerOnAction,
-            "powerOff": vim.vm.PowerOffAction,
-            "suspend": vim.vm.SuspendAction,
-            "reset": vim.vm.ResetAction,
+        # Map operation to vSphere API method name on VirtualMachine
+        method_map = {
+            "powerOn": "PowerOnVM_Task",
+            "powerOff": "PowerOffVM_Task",
+            "suspend": "SuspendVM_Task",
+            "reset": "ResetVM_Task",
         }
-        action_class = operation_map[operation]
+        action = vim.action.MethodAction(
+            name=method_map[operation],
+        )
 
         scheduler = vim.scheduler.OnceTaskScheduler(runAt=run_at)
         task_name = f"scheduled_{operation}_{vm_name}_{run_at.strftime('%Y%m%dT%H%M%S')}"
@@ -535,7 +529,7 @@ def register_vm_ops_ext_tools(mcp: Any, client: VSphereClient) -> None:
             description=f"Scheduled {operation} for VM '{vm_name}'",
             enabled=True,
             scheduler=scheduler,
-            action=action_class(),
+            action=action,
             notification="",
         )
 
