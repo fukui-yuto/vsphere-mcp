@@ -1,85 +1,80 @@
 # vsphere-mcp
 
-MCP (Model Context Protocol) server for VMware vSphere / vCenter operations.
+VMware vSphere / vCenter を Claude Code から自然言語で操作するための MCP (Model Context Protocol) サーバーです。
 
-Operate your vSphere infrastructure from Claude Code using natural language.
+> **注意**: 開発・テストはすべて [vcsim](https://github.com/vmware/govmomi/tree/main/vcsim)（vCenter Server Simulator）上で実施しています。商用 vSphere 環境への影響はありません。
 
-> **Note**: All development and testing is performed against [vcsim](https://github.com/vmware/govmomi/tree/main/vcsim) (vCenter Server Simulator). No commercial vSphere environment is required or affected.
+## 機能一覧
 
-## Features
+### 情報取得ツール（12 個・読み取り専用・confirm 不要）
 
-### Information Retrieval (12 tools, read-only)
-
-| Tool | Description |
+| ツール名 | 概要 |
 |---|---|
-| `test_connection` | Test vSphere connection and return server info |
-| `list_vms` | List all VMs (filter by host/cluster, pagination with limit/offset) |
-| `get_vm_info` | Detailed VM info (CPU, memory, disks, NICs, storage, tools) |
-| `list_hosts` | List ESXi hosts (filter by cluster) |
-| `get_host_info` | Detailed ESXi host info |
-| `list_datacenters` | List all datacenters |
-| `list_clusters` | List clusters (filter by datacenter) |
-| `list_datastores` | List datastores with capacity/usage |
-| `list_networks` | List networks (port groups) |
-| `list_snapshots` | List VM snapshots (tree structure) |
-| `get_cluster_health` | Cluster health summary with host details |
-| `search_vms` | Search VMs by name (case-insensitive) |
+| `test_connection` | vSphere 接続テスト・サーバー情報取得 |
+| `list_vms` | VM 一覧取得（ホスト/クラスターフィルター、ページネーション対応） |
+| `get_vm_info` | VM 詳細情報取得（CPU、メモリ、ディスク、NIC、ストレージ、VMware Tools） |
+| `list_hosts` | ESXi ホスト一覧取得（クラスターフィルター） |
+| `get_host_info` | ESXi ホスト詳細情報取得 |
+| `list_datacenters` | データセンター一覧取得 |
+| `list_clusters` | クラスター一覧取得（データセンターフィルター） |
+| `list_datastores` | データストア一覧取得（容量/使用量付き） |
+| `list_networks` | ネットワーク（ポートグループ）一覧取得 |
+| `list_snapshots` | VM スナップショット一覧取得（ツリー構造） |
+| `get_cluster_health` | クラスター健全性サマリー（ホスト詳細付き） |
+| `search_vms` | VM 名で検索（大文字小文字区別なし） |
 
-### Operations (16 tools, confirmation required)
+### 操作ツール（16 個・confirm 必須）
 
-All destructive operations require `confirm=True` to execute. Without it, the tool returns a confirmation prompt with the danger level.
+すべての操作ツールは `confirm=True` を指定しない限り実行されず、確認プロンプトを返します。
 
-| Tool | Description | Danger Level |
+| ツール名 | 概要 | 危険度 |
 |---|---|---|
-| `power_on_vm` | Power on a VM | Low |
-| `power_off_vm` | Force power off (hard stop) | Medium |
-| `shutdown_vm` | Graceful guest OS shutdown | Medium |
-| `reboot_vm` | Guest OS reboot | Medium |
-| `create_snapshot` | Create VM snapshot | Medium |
-| `set_vm_resources` | Change CPU and/or memory | Medium |
-| `add_disk` | Add a new virtual disk | Medium |
-| `add_nic` | Add a new network adapter | Medium |
-| `revert_snapshot` | Revert to a snapshot | High |
-| `remove_snapshot` | Delete a snapshot | High |
-| `migrate_vm` | vMotion to another host | High |
-| `clone_vm` | Clone an existing VM | High |
-| `deploy_from_template` | Deploy a new VM from a template | High |
-| `enter_maintenance_mode` | Put ESXi host into maintenance mode | High |
-| `exit_maintenance_mode` | Take ESXi host out of maintenance mode | High |
-| `delete_vm` | Permanently delete a VM | Critical |
+| `power_on_vm` | VM 起動 | 低 |
+| `power_off_vm` | VM 強制電源 OFF | 中 |
+| `shutdown_vm` | ゲスト OS シャットダウン | 中 |
+| `reboot_vm` | ゲスト OS 再起動 | 中 |
+| `create_snapshot` | スナップショット作成 | 中 |
+| `set_vm_resources` | CPU/メモリ変更 | 中 |
+| `add_disk` | ディスク追加 | 中 |
+| `add_nic` | NIC 追加 | 中 |
+| `revert_snapshot` | スナップショット復元 | 高 |
+| `remove_snapshot` | スナップショット削除 | 高 |
+| `migrate_vm` | vMotion（ホスト間移行） | 高 |
+| `clone_vm` | VM クローン作成 | 高 |
+| `deploy_from_template` | テンプレートから VM 展開 | 高 |
+| `enter_maintenance_mode` | ESXi メンテナンスモード開始 | 高 |
+| `exit_maintenance_mode` | ESXi メンテナンスモード終了 | 高 |
+| `delete_vm` | VM 完全削除 | **最高** |
 
-## Quick Start
+## クイックスタート
 
-### Prerequisites
+### 前提条件
 
-- Python 3.11+
-- [uv](https://docs.astral.sh/uv/) (recommended)
-- Docker (for local development with vcsim)
+- Python 3.11 以上
+- [uv](https://docs.astral.sh/uv/)（推奨）
+- Docker（vcsim を使ったローカル開発用）
 
-### 1. Start vcsim (for development)
+### 1. vcsim の起動（開発用）
 
 ```bash
 docker compose up -d
 ```
 
-This starts a vCenter Server Simulator on port 8989 with pre-provisioned datacenters, clusters, hosts, VMs, and datastores.
+ポート 8989 で vCenter Server Simulator が起動し、データセンター・クラスター・ホスト・VM・データストアが事前作成されます。
 
-### 2. Install
+### 2. インストール
 
 ```bash
-# From PyPI (when published)
-uv pip install vsphere-mcp
-
-# From source
+# ソースから
 git clone https://github.com/fukui-yuto/vsphere-mcp.git
 cd vsphere-mcp
 uv venv
 uv pip install -e .
 ```
 
-### 3. Register with Claude Code
+### 3. Claude Code への登録
 
-#### For local development (vcsim)
+#### ローカル開発（vcsim）
 
 ```bash
 claude mcp add --transport stdio vsphere-mcp \
@@ -91,7 +86,7 @@ claude mcp add --transport stdio vsphere-mcp \
   -- uv run vsphere-mcp
 ```
 
-#### For production vCenter
+#### 本番 vCenter
 
 ```bash
 claude mcp add --transport stdio vsphere-mcp \
@@ -102,7 +97,7 @@ claude mcp add --transport stdio vsphere-mcp \
   -- uv run vsphere-mcp
 ```
 
-#### Using a password file (recommended for production)
+#### パスワードファイル（本番推奨）
 
 ```bash
 claude mcp add --transport stdio vsphere-mcp \
@@ -113,179 +108,186 @@ claude mcp add --transport stdio vsphere-mcp \
   -- uv run vsphere-mcp
 ```
 
-### 4. Use from Claude Code
+### 4. Claude Code から利用
 
-Once registered, you can use natural language:
+登録後、自然言語で操作できます:
 
 ```
-> Show me all VMs in the cluster
+> クラスター内の全 VM を表示して
 
-> What's the status of VM "web-server-01"?
+> VM "web-server-01" のステータスを確認して
 
-> Power on the VM "dev-test-01" (confirm=True)
+> VM "dev-test-01" を起動して（confirm=True）
 
-> List all datastores and their free space
+> 全データストアの空き容量を一覧表示して
 
-> Create a snapshot of "db-server" called "before-upgrade"
+> "db-server" のスナップショットを "before-upgrade" という名前で作成して
 
-> Clone "web-01" as "web-01-staging"
+> "web-01" を "web-01-staging" としてクローンして
 
-> Add a 50GB disk to "app-server"
+> "app-server" に 50GB のディスクを追加して
 ```
 
-## Environment Variables
+## 環境変数
 
-| Variable | Default | Description |
+| 変数名 | デフォルト値 | 説明 |
 |---|---|---|
-| `VSPHERE_HOST` | `localhost` | vCenter/ESXi hostname or IP |
-| `VSPHERE_PORT` | `443` | vSphere API port |
-| `VSPHERE_USER` | `administrator@vsphere.local` | Username |
-| `VSPHERE_PASSWORD` | (empty) | Password |
-| `VSPHERE_PASSWORD_FILE` | (empty) | Path to a file containing the password (alternative to `VSPHERE_PASSWORD`) |
-| `VSPHERE_IGNORE_SSL` | `false` | Skip SSL certificate verification |
+| `VSPHERE_HOST` | `localhost` | vCenter/ESXi のホスト名または IP |
+| `VSPHERE_PORT` | `443` | vSphere API ポート |
+| `VSPHERE_USER` | `administrator@vsphere.local` | ユーザー名 |
+| `VSPHERE_PASSWORD` | (空) | パスワード |
+| `VSPHERE_PASSWORD_FILE` | (空) | パスワードファイルのパス（`VSPHERE_PASSWORD` の代替） |
+| `VSPHERE_IGNORE_SSL` | `false` | SSL 証明書検証をスキップ |
 
-### SSL Configuration
+### SSL 設定
 
-SSL certificate verification is **enabled by default**. For self-signed certificates or development environments:
+SSL 証明書の検証は**デフォルトで有効**です。自己署名証明書や開発環境の場合:
 
 ```bash
 export VSPHERE_IGNORE_SSL=true
 ```
 
-> **Warning**: Never disable SSL verification in production environments.
+> **警告**: 本番環境では SSL 検証を無効化しないでください。
 
-## Safety Design
+## 安全設計
 
-### Confirmation System
+### 確認システム
 
-All destructive operations use a two-step confirmation pattern:
+すべての破壊的操作は 2 段階の確認パターンを使用します:
 
-1. **First call** (without `confirm=True`): Returns a preview with danger level
-2. **Second call** (with `confirm=True`): Actually executes the operation
+1. **1 回目の呼び出し**（`confirm=True` なし）: 危険度付きのプレビューを返す
+2. **2 回目の呼び出し**（`confirm=True` あり）: 実際に操作を実行
 
 ```
-# First call - returns confirmation prompt
+# 1 回目 - 確認プロンプトを返す
 power_off_vm(vm_name="web-01")
 # -> {"status": "confirmation_required", "danger_level": "medium", ...}
 
-# Second call - executes
+# 2 回目 - 実行
 power_off_vm(vm_name="web-01", confirm=True)
 # -> {"status": "success", "vm_name": "web-01", "operation": "power_off"}
 ```
 
-### Danger Levels
+### 危険度レベル
 
-| Level | Description | Examples |
+| レベル | 説明 | 例 |
 |---|---|---|
-| **Low** | Easily reversible | Power on |
-| **Medium** | May cause brief disruption | Power off, shutdown, reboot, create snapshot, set resources, add disk/NIC |
-| **High** | Significant impact, hard to reverse | Revert/remove snapshot, vMotion, clone, deploy from template, maintenance mode |
-| **Critical** | Permanent data loss possible | Delete VM |
+| **低** | 容易に取り消し可能 | VM 起動 |
+| **中** | 一時的な影響あり | 電源 OFF、シャットダウン、再起動、スナップショット作成、リソース変更 |
+| **高** | 大きな影響・取り消し困難 | スナップショット復元/削除、vMotion、クローン、テンプレート展開、メンテナンスモード |
+| **最高** | 永久的なデータ損失の可能性 | VM 削除 |
 
-### Logging
+### ログ
 
-All operations are logged in structured JSON format:
+すべての操作は構造化 JSON 形式でログ記録されます:
 
 ```json
-{"event": "power_off_vm", "vm_name": "web-01", "level": "info", "timestamp": "2025-05-04T12:00:00Z"}
+{"event": "power_off_vm", "vm_name": "web-01", "level": "info", "timestamp": "2025-05-04T12:00:00Z", "duration_ms": 1234.5}
 ```
 
-Credentials are never included in logs.
+認証情報はログに**一切含まれません**（自動マスク処理）。
 
-## Error Handling
+## エラーハンドリング
 
-Connection errors are classified into specific exception types for clear diagnostics:
+接続エラーは診断しやすいように型で分類されます:
 
-| Error Type | Cause | Example Message |
+| エラー型 | 原因 | メッセージ例 |
 |---|---|---|
-| `VSphereAuthenticationError` | Invalid username or password | `Authentication failed for user 'admin' on vcenter:443` |
-| `VSphereSSLError` | SSL certificate verification failure | `SSL certificate verification failed ... Set VSPHERE_IGNORE_SSL=true` |
-| `VSphereConnectionError` | Host unreachable or connection refused | `Cannot reach vSphere at vcenter:443` |
+| `VSphereAuthenticationError` | ユーザー名/パスワードが不正 | `Authentication failed for user 'admin' on vcenter:443` |
+| `VSphereSSLError` | SSL 証明書検証失敗 | `SSL certificate verification failed ... Set VSPHERE_IGNORE_SSL=true` |
+| `VSphereConnectionError` | ホスト到達不能・接続拒否 | `Cannot reach vSphere at vcenter:443` |
 
-The client automatically retries on transient connection failures (up to 3 attempts with a 2-second delay).
+クライアントは一時的な接続障害時に自動リトライします（最大 3 回、2 秒間隔）。
 
-## Development
+## 開発
 
-### Run tests (requires vcsim)
+### テスト実行（vcsim が必要）
 
 ```bash
 docker compose up -d
 uv run pytest tests/ -v
 ```
 
-### Lint and format
+### リント・フォーマット
 
 ```bash
 uv run ruff check src/ tests/
 uv run ruff format src/ tests/
 ```
 
-### Project structure
+### プロジェクト構成
 
 ```
 vsphere-mcp/
   pyproject.toml
-  docker-compose.yml           # vcsim for local dev
+  docker-compose.yml              # vcsim 起動用
   src/vsphere_mcp/
-    server.py                  # MCP server entry point
-    config.py                  # Environment variable settings
-    client.py                  # vSphere connection (lazy-init, auto-reconnect)
-    logging.py                 # Structured logging
+    server.py                     # MCP サーバーエントリポイント
+    config.py                     # 環境変数による設定管理
+    client.py                     # vSphere 接続（遅延初期化・自動再接続）
+    logging.py                    # 構造化ログ（パスワードマスク付き）
     tools/
-      _base.py                 # require_confirm / handle_tool_errors decorators
-      inventory.py             # Read-only tools (12 tools)
-      power.py                 # Power operations (4 tools)
-      snapshot.py              # Snapshot management (3 tools)
-      migration.py             # vMotion (1 tool)
-      lifecycle.py             # VM clone / deploy / delete (3 tools)
-      resources.py             # VM resource changes: CPU, memory, disk, NIC (3 tools)
-      host.py                  # Host maintenance mode (2 tools)
+      _base.py                    # require_confirm / handle_tool_errors デコレータ
+      inventory.py                # 情報取得ツール（12 個）
+      power.py                    # 電源操作（4 個）
+      snapshot.py                 # スナップショット管理（3 個）
+      migration.py                # vMotion（1 個）
+      lifecycle.py                # VM クローン/展開/削除（3 個）
+      resources.py                # リソース変更: CPU/メモリ/ディスク/NIC（3 個）
+      host.py                     # ホストメンテナンスモード（2 個）
     utils/
-      property_collector.py    # Efficient vSphere property retrieval
-  tests/                       # Integration tests against vcsim
+      property_collector.py       # PropertyCollector による効率的プロパティ取得
+  tests/                          # vcsim 対象の統合テスト
   docs/
-    CONTRIBUTING.md
-    SECURITY.md
-    CHANGELOG.md
-  .github/workflows/ci.yml    # GitHub Actions CI
+    ARCHITECTURE.md               # アーキテクチャ設計書
+    DESIGN_DECISIONS.md           # 設計判断記録 (ADR)
+    CONTRIBUTING.md               # コントリビュートガイド
+    SECURITY.md                   # セキュリティポリシー
+    CHANGELOG.md                  # 変更履歴
+  .github/workflows/ci.yml       # GitHub Actions CI
 ```
 
-## Architecture
+## アーキテクチャ
 
 ```
 Claude Code
-    |  stdio (default) or HTTP/SSE
+    |  stdio（デフォルト）または HTTP/SSE
     v
-vsphere-mcp server (Python, FastMCP)
-    |  pyVmomi (HTTPS)
+vsphere-mcp サーバー（Python, FastMCP）
+    |  pyVmomi（HTTPS）
     v
-vCenter Server (production) or vcsim (development)
+vCenter Server（本番）または vcsim（開発）
 ```
 
-- **Transport**: stdio (default, simplest for local use) or SSE (for multi-client setups)
-- **Connection**: Lazy-initialized on first tool call, auto-reconnect on session expiry
-- **Property retrieval**: PropertyCollector for efficient batch queries
-- **Safety**: All destructive operations gated by `require_confirm` decorator with danger levels
-- **Error handling**: Typed exceptions (`VSphereAuthenticationError`, `VSphereSSLError`, `VSphereConnectionError`)
+- **トランスポート**: stdio（デフォルト、ローカル運用に最適）または SSE（複数クライアント共有用）
+- **接続**: 初回ツール呼び出し時に遅延初期化、セッション切れ時に自動再接続
+- **プロパティ取得**: PropertyCollector による効率的な一括クエリ
+- **安全装置**: `require_confirm` デコレータによる危険度別の確認システム
+- **エラーハンドリング**: 型付き例外（`VSphereAuthenticationError`, `VSphereSSLError`, `VSphereConnectionError`）
 
-## Known Limitations
+## 既知の制限事項
 
-- **vcsim vs real vCenter**: Some API behaviors differ between vcsim and production vCenter. See [vcsim documentation](https://github.com/vmware/govmomi/tree/main/vcsim) for details.
-- **Guest operations**: `shutdown_vm` and `reboot_vm` require VMware Tools installed in the guest OS.
-- **vMotion**: Requires compatible hosts, shared storage, and proper networking in production.
+- **vcsim と実機の差異**: vcsim と本番 vCenter で一部 API の挙動が異なります。詳細は [vcsim ドキュメント](https://github.com/vmware/govmomi/tree/main/vcsim)を参照してください。
+- **ゲスト操作**: `shutdown_vm` と `reboot_vm` はゲスト OS に VMware Tools がインストールされている必要があります。
+- **vMotion**: 本番環境では互換性のあるホスト、共有ストレージ、適切なネットワーク構成が必要です。
 
-## License
+## ライセンス
 
 [Apache License 2.0](LICENSE)
 
-## Contributing
+## コントリビュート
 
-See [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md) for development setup and guidelines.
+開発環境のセットアップと貢献の手順は [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md) を参照してください。
 
-## Security
+## セキュリティ
 
-See [docs/SECURITY.md](docs/SECURITY.md) for security policy and reporting vulnerabilities.
+セキュリティポリシーと脆弱性の報告方法は [docs/SECURITY.md](docs/SECURITY.md) を参照してください。
 
-## Changelog
+## 変更履歴
 
-See [docs/CHANGELOG.md](docs/CHANGELOG.md) for release history.
+リリース履歴は [docs/CHANGELOG.md](docs/CHANGELOG.md) を参照してください。
+
+## 設計ドキュメント
+
+- [アーキテクチャ設計書](docs/ARCHITECTURE.md)
+- [設計判断記録 (ADR)](docs/DESIGN_DECISIONS.md)
