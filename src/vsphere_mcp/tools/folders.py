@@ -16,13 +16,16 @@ def _build_folder_path(folder_obj: Any) -> str:
     """Walk parent chain to build a folder path string."""
     parts: list[str] = []
     current = folder_obj
-    while current:
+    max_depth = 50
+    depth = 0
+    while current and depth < max_depth:
         if hasattr(current, "name"):
             parts.append(current.name)
         parent = getattr(current, "parent", None)
         if parent is None or isinstance(current, vim.Datacenter):
             break
         current = parent
+        depth += 1
     parts.reverse()
     return "/".join(parts)
 

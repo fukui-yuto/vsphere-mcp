@@ -50,6 +50,8 @@ def register_vm_device_tools(mcp: Any, client: VSphereClient) -> None:
     def expand_disk(vm_name: str, disk_label: str, new_size_gb: int) -> dict[str, Any]:
         """Expand a virtual disk to a new size. The new size must be larger than the current size."""
         logger.info("expand_disk", vm_name=vm_name, disk_label=disk_label, new_size_gb=new_size_gb)
+        if new_size_gb <= 0:
+            return {"status": "error", "error": "new_size_gb must be a positive integer"}
         found = find_vm_with_props(client, vm_name, ["config.hardware.device"])
         if found is None:
             return {"status": "error", "error": f"VM '{vm_name}' not found"}
@@ -231,7 +233,8 @@ def register_vm_device_tools(mcp: Any, client: VSphereClient) -> None:
                 "cfg_file": ticket.cfgFile if hasattr(ticket, "cfgFile") else None,
                 "ssl_thumbprint": ticket.sslThumbprint if hasattr(ticket, "sslThumbprint") else None,
             }
-        except Exception:
+        except Exception as webmks_err:
+            logger.debug("AcquireTicket(webmks) failed, trying AcquireMksTicket", error=str(webmks_err))
             try:
                 ticket = vm_obj.AcquireMksTicket()
                 return {

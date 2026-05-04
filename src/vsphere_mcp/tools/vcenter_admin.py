@@ -28,7 +28,10 @@ def register_vcenter_admin_tools(mcp: Any, client: VSphereClient) -> None:
         """List all roles defined in vCenter with their privileges."""
         logger.info("list_roles")
         content = client.content
-        role_list = content.authorizationManager.roleList
+        auth_mgr = content.authorizationManager
+        if auth_mgr is None:
+            return {"status": "error", "error": "authorizationManager not available"}
+        role_list = auth_mgr.roleList
 
         roles: list[dict[str, Any]] = []
         for role in role_list or []:
@@ -115,7 +118,7 @@ def register_vcenter_admin_tools(mcp: Any, client: VSphereClient) -> None:
 
         licenses: list[dict[str, Any]] = []
         for lic in license_list or []:
-            masked_key = lic.licenseKey[:5] + "****" if lic.licenseKey else None
+            masked_key = ("****-" + lic.licenseKey[-5:]) if lic.licenseKey else None
 
             expiration_date = None
             properties: dict[str, Any] = {}
@@ -144,7 +147,10 @@ def register_vcenter_admin_tools(mcp: Any, client: VSphereClient) -> None:
         """List active sessions on vCenter."""
         logger.info("list_active_sessions")
         content = client.content
-        session_list = content.sessionManager.sessionList
+        session_mgr = content.sessionManager
+        if session_mgr is None:
+            return {"status": "error", "error": "sessionManager not available"}
+        session_list = session_mgr.sessionList
 
         sessions: list[dict[str, Any]] = []
         for session in session_list or []:
@@ -174,6 +180,10 @@ def register_vcenter_admin_tools(mcp: Any, client: VSphereClient) -> None:
         hours: Look back this many hours (default 24).
         """
         logger.info("list_recent_tasks", max_count=max_count, hours=hours)
+        if hours <= 0:
+            return {"status": "error", "error": "hours must be a positive integer"}
+        if max_count <= 0:
+            return {"status": "error", "error": "max_count must be a positive integer"}
         content = client.content
         task_manager = content.taskManager
 

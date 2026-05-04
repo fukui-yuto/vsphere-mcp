@@ -37,7 +37,12 @@ def register_cluster_config_tools(mcp: Any, client: VSphereClient) -> None:
         if cluster is None:
             return {"status": "error", "error": f"Cluster '{cluster_name}' not found"}
 
-        das_config = cluster.configuration.dasConfig
+        config = getattr(cluster, "configuration", None)
+        if config is None:
+            return {"status": "error", "error": f"Cluster '{cluster_name}' configuration not available"}
+        das_config = config.dasConfig
+        if das_config is None:
+            return {"status": "error", "error": "HA configuration not available on this cluster"}
 
         ha_config: dict[str, Any] = {
             "cluster_name": cluster_name,
@@ -78,7 +83,12 @@ def register_cluster_config_tools(mcp: Any, client: VSphereClient) -> None:
         if cluster is None:
             return {"status": "error", "error": f"Cluster '{cluster_name}' not found"}
 
-        drs_config = cluster.configuration.drsConfig
+        config = getattr(cluster, "configuration", None)
+        if config is None:
+            return {"status": "error", "error": f"Cluster '{cluster_name}' configuration not available"}
+        drs_config = config.drsConfig
+        if drs_config is None:
+            return {"status": "error", "error": "DRS configuration not available on this cluster"}
 
         return {
             "cluster_name": cluster_name,
@@ -100,7 +110,8 @@ def register_cluster_config_tools(mcp: Any, client: VSphereClient) -> None:
         if cluster is None:
             return {"status": "error", "error": f"Cluster '{cluster_name}' not found"}
 
-        rules_raw = cluster.configuration.rule or []
+        config = getattr(cluster, "configuration", None)
+        rules_raw = (config.rule if config else None) or []
 
         rules: list[dict[str, Any]] = []
         for rule in rules_raw:

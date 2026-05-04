@@ -21,8 +21,17 @@ def _find_datastore_obj(client: Any, datastore_name: str) -> Any | None:
     return None
 
 
-def _find_datacenter(client: Any) -> Any | None:
-    """Find the first datacenter (needed for fileManager operations)."""
+def _find_datacenter_for_datastore(client: Any, ds_obj: Any) -> Any | None:
+    """Find the datacenter that contains the given datastore by walking its parent chain."""
+    current = getattr(ds_obj, "parent", None)
+    max_depth = 50
+    depth = 0
+    while current and depth < max_depth:
+        if isinstance(current, vim.Datacenter):
+            return current
+        current = getattr(current, "parent", None)
+        depth += 1
+    # Fallback: return first datacenter
     items = collect_properties(client, vim.Datacenter, ["name"])
     if items:
         return items[0]["_obj"]
@@ -48,7 +57,9 @@ def register_datastore_browser_tools(mcp: Any, client: VSphereClient) -> None:
         if ds_obj is None:
             return {"status": "error", "error": f"Datastore '{datastore_name}' not found"}
 
-        browser = ds_obj.browser
+        browser = getattr(ds_obj, "browser", None)
+        if browser is None:
+            return {"status": "error", "error": f"Datastore '{datastore_name}' browser not available"}
         search_spec = vim.host.DatastoreBrowser.SearchSpec(
             matchPattern=[file_pattern],
             details=vim.host.DatastoreBrowser.FileInfo.Details(
@@ -104,16 +115,17 @@ def register_datastore_browser_tools(mcp: Any, client: VSphereClient) -> None:
     def delete_datastore_file(datastore_name: str, file_path: str) -> dict[str, Any]:
         """Delete a file or directory from a datastore. This operation is irreversible."""
         logger.info("delete_datastore_file", datastore_name=datastore_name, file_path=file_path)
-        dc = _find_datacenter(client)
-        if dc is None:
-            return {"status": "error", "error": "No datacenter found"}
-
         ds_obj = _find_datastore_obj(client, datastore_name)
         if ds_obj is None:
             return {"status": "error", "error": f"Datastore '{datastore_name}' not found"}
+        dc = _find_datacenter_for_datastore(client, ds_obj)
+        if dc is None:
+            return {"status": "error", "error": "No datacenter found"}
 
         content = client.content
         file_manager = content.fileManager
+        if file_manager is None:
+            return {"status": "error", "error": "fileManager not available"}
         datastore_file_path = f"[{datastore_name}] {file_path}"
 
         task = file_manager.DeleteDatastoreFile_Task(name=datastore_file_path, datacenter=dc)
