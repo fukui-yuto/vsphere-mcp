@@ -221,3 +221,128 @@ def register_batch_tools(mcp: Any, client: VSphereClient) -> None:
             "not_found": len(vm_names) - found_count,
             "vms": results,
         }
+
+    @mcp.tool()
+    @handle_tool_errors
+    @require_confirm(danger_level="high")
+    def batch_reconfigure_vms(
+        vm_names: list[str],
+        num_cpus: int | None = None,
+        memory_mb: int | None = None,
+    ) -> dict[str, Any]:
+        """Reconfigure CPU and/or memory for multiple VMs in one call.
+
+        Args:
+            vm_names: List of VM names to reconfigure.
+            num_cpus: Number of CPUs to set (optional).
+            memory_mb: Memory in MB to set (optional).
+        """
+        logger.info("batch_reconfigure_vms", vm_names=vm_names, num_cpus=num_cpus, memory_mb=memory_mb)
+        if num_cpus is None and memory_mb is None:
+            return {"status": "error", "error": "At least one of num_cpus or memory_mb must be specified"}
+        if num_cpus is not None and num_cpus < 1:
+            return {"status": "error", "error": "num_cpus must be at least 1"}
+        if memory_mb is not None and memory_mb < 4:
+            return {"status": "error", "error": "memory_mb must be at least 4"}
+
+        all_vms = collect_properties(client, vim.VirtualMachine, ["name"])
+        vm_map = {item.get("name"): item for item in all_vms}
+
+        results: list[dict[str, Any]] = []
+        for name in vm_names:
+            found = vm_map.get(name)
+            if found is None:
+                results.append({"vm_name": name, "status": "error", "error": "VM not found"})
+                continue
+            try:
+                spec = vim.vm.ConfigSpec()
+                if num_cpus is not None:
+                    spec.numCPUs = num_cpus
+                if memory_mb is not None:
+                    spec.memoryMB = memory_mb
+                task = found["_obj"].Reconfigure(spec=spec)
+                r = wait_for_task(task)
+                r["vm_name"] = name
+                results.append(r)
+            except Exception as e:
+                results.append({"vm_name": name, "status": "error", "error": str(e)})
+
+        succeeded = sum(1 for r in results if r.get("status") == "success")
+        return {
+            "operation": "batch_reconfigure_vms",
+            "total": len(vm_names),
+            "succeeded": succeeded,
+            "failed": len(vm_names) - succeeded,
+            "results": results,
+        }
+
+    @mcp.tool()
+    @handle_tool_errors
+    @require_confirm(danger_level="high")
+    def batch_migrate_vms(
+        vm_names: list[str],
+        target_host_name: str,
+        target_datastore_name: str | None = None,
+    ) -> dict[str, Any]:
+        """Migrate (vMotion) multiple VMs to a target host and optionally a target datastore.
+
+        Args:
+            vm_names: List of VM names to migrate.
+            target_host_name: Name of the destination ESXi host.
+            target_datastore_name: Name of the destination datastore (optional).
+        """
+        logger.info(
+            "batch_migrate_vms",
+            vm_names=vm_names,
+            target_host_name=target_host_name,
+            target_datastore_name=target_datastore_name,
+        )
+        host_items = collect_properties(client, vim.HostSystem, ["name"])
+        target_host = None
+        for item in host_items:
+            if item.get("name") == target_host_name:
+                target_host = item["_obj"]
+                break
+        if target_host is None:
+            return {"status": "error", "error": f"Target host '{target_host_name}' not found"}
+
+        target_datastore = None
+        if target_datastore_name is not None:
+            ds_items = collect_properties(client, vim.Datastore, ["name"])
+            for item in ds_items:
+                if item.get("name") == target_datastore_name:
+                    target_datastore = item["_obj"]
+                    break
+            if target_datastore is None:
+                return {"status": "error", "error": f"Target datastore '{target_datastore_name}' not found"}
+
+        all_vms = collect_properties(client, vim.VirtualMachine, ["name"])
+        vm_map = {item.get("name"): item for item in all_vms}
+
+        results: list[dict[str, Any]] = []
+        for name in vm_names:
+            found = vm_map.get(name)
+            if found is None:
+                results.append({"vm_name": name, "status": "error", "error": "VM not found"})
+                continue
+            try:
+                relocate_spec = vim.vm.RelocateSpec(host=target_host)
+                if target_datastore is not None:
+                    relocate_spec.datastore = target_datastore
+                task = found["_obj"].RelocateVM_Task(spec=relocate_spec)
+                r = wait_for_task(task)
+                r["vm_name"] = name
+                results.append(r)
+            except Exception as e:
+                results.append({"vm_name": name, "status": "error", "error": str(e)})
+
+        succeeded = sum(1 for r in results if r.get("status") == "success")
+        return {
+            "operation": "batch_migrate_vms",
+            "target_host_name": target_host_name,
+            "target_datastore_name": target_datastore_name,
+            "total": len(vm_names),
+            "succeeded": succeeded,
+            "failed": len(vm_names) - succeeded,
+            "results": results,
+        }

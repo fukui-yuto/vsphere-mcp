@@ -195,3 +195,70 @@ def register_host_tools(mcp: Any, client: VSphereClient) -> None:
         result["target_cluster"] = target_cluster
         result["operation"] = "move_host_to_cluster"
         return result
+
+    @mcp.tool()
+    @handle_tool_errors
+    @require_confirm(danger_level="high")
+    def add_standalone_host(
+        datacenter_name: str,
+        host_name: str,
+        username: str,
+        password: str,
+        ssl_thumbprint: str | None = None,
+        force: bool = False,
+    ) -> dict[str, Any]:
+        """Add a standalone ESXi host to a datacenter's host folder.
+
+        Args:
+            datacenter_name: Name of the datacenter to add the host to.
+            host_name: Hostname or IP address of the ESXi host.
+            username: Username for connecting to the ESXi host.
+            password: Password for connecting to the ESXi host.
+            ssl_thumbprint: SSL thumbprint of the host (optional, for certificate verification).
+            force: If True, force the addition even if the host is managed elsewhere.
+        """
+        logger.info("add_standalone_host", datacenter_name=datacenter_name, host_name=host_name)
+        dc_items = collect_properties(client, vim.Datacenter, ["name", "hostFolder"])
+        datacenter_obj = None
+        for item in dc_items:
+            if item.get("name") == datacenter_name:
+                datacenter_obj = item["_obj"]
+                break
+        if datacenter_obj is None:
+            return {"status": "error", "error": f"Datacenter '{datacenter_name}' not found"}
+
+        host_folder = datacenter_obj.hostFolder
+        spec = vim.host.ConnectSpec(
+            hostName=host_name,
+            userName=username,
+            password=password,
+            sslThumbprint=ssl_thumbprint or "",
+            force=force,
+        )
+        task = host_folder.AddStandaloneHost_Task(spec=spec, addConnected=True)
+        result = wait_for_task(task)
+        result["datacenter_name"] = datacenter_name
+        result["host_name"] = host_name
+        result["operation"] = "add_standalone_host"
+        return result
+
+    @mcp.tool()
+    @handle_tool_errors
+    @require_confirm(danger_level="medium")
+    def rename_host(host_name: str, new_name: str) -> dict[str, Any]:
+        """Rename an ESXi host in vCenter inventory.
+
+        Args:
+            host_name: Current name of the host.
+            new_name: New name for the host.
+        """
+        logger.info("rename_host", host_name=host_name, new_name=new_name)
+        host_obj = find_host_by_name(client, host_name)
+        if host_obj is None:
+            return {"status": "error", "error": f"Host '{host_name}' not found"}
+        task = host_obj.Rename_Task(newName=new_name)
+        result = wait_for_task(task)
+        result["host_name"] = host_name
+        result["new_name"] = new_name
+        result["operation"] = "rename_host"
+        return result

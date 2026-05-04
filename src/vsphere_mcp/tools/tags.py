@@ -238,3 +238,34 @@ def register_tag_tools(mcp: Any, client: VSphereClient) -> None:
             "total": len(custom_values),
             "custom_attributes": custom_values,
         }
+
+    @mcp.tool()
+    @handle_tool_errors
+    @require_confirm(danger_level="high")
+    def delete_custom_attribute(attribute_name: str) -> dict[str, Any]:
+        """Delete a custom attribute definition from vCenter.
+
+        Args:
+            attribute_name: Name of the custom attribute definition to delete.
+        """
+        logger.info("delete_custom_attribute", attribute_name=attribute_name)
+        content = client.content
+        custom_fields = content.customFieldsManager
+        if not custom_fields:
+            return {"status": "error", "error": "Custom fields manager not available"}
+
+        field_key = None
+        for field in custom_fields.field or []:
+            if field.name == attribute_name:
+                field_key = field.key
+                break
+        if field_key is None:
+            return {"status": "error", "error": f"Custom attribute '{attribute_name}' not found"}
+
+        custom_fields.RemoveCustomFieldDef(key=field_key)
+        return {
+            "status": "success",
+            "operation": "delete_custom_attribute",
+            "attribute_name": attribute_name,
+            "key": field_key,
+        }

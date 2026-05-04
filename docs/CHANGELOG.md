@@ -5,6 +5,51 @@
 フォーマットは [Keep a Changelog](https://keepachangelog.com/ja/) に基づいており、
 [セマンティックバージョニング](https://semver.org/lang/ja/) に準拠しています。
 
+## [0.3.0] - 2026-05-04
+
+301 ツールへの拡張。issues.md の全 Gap Analysis 項目を実装。
+
+### 追加
+
+#### 新規モジュール
+
+| モジュール | ツール数 | 概要 |
+|-----------|---------|------|
+| `datacenter.py` | 3 | データセンター作成・削除・リネーム |
+| `customization.py` | 6 | Linux/Windows カスタマイズ仕様の管理・VM 適用 |
+| `alarm.py` | 4 | アラーム定義の作成・削除・制御 |
+| `vsphere_tags.py` | 9 | vSphere タグカテゴリ・タグの管理とオブジェクトへの付与 |
+| `content_library.py` | 7 | コンテンツライブラリの管理・VM デプロイ |
+| `vapp.py` | 4 | vApp の一覧・電源操作・削除 |
+| `scheduled_tasks.py` | 3 | スケジュールタスクの一覧・削除・即時実行 |
+| `host_profile.py` | 2 | ホストプロファイル一覧・コンプライアンス確認 |
+| `license.py` | 4 | ライセンスキーの追加・削除・割り当て管理 |
+| `fault_tolerance.py` | 3 | VM フォールトトレランスの有効化・無効化・情報取得 |
+
+#### 既存モジュール拡張
+
+| モジュール | 追加数 | 追加ツール |
+|-----------|--------|-----------|
+| `guest.py` | +6 | `upload_file_to_guest`, `download_file_from_guest`, `move_guest_file`, `delete_guest_directory`, `get_guest_network_info`, `get_guest_os_info` |
+| `lifecycle.py` | +5 | `linked_clone_vm`, `enable_vm_cbt`, `query_vm_changed_disk_areas`, `answer_vm_question`, `get_vm_pending_question` |
+| `cluster_config.py` | +8 | `create_vm_host_affinity_rule`, `delete_drs_group`, `update_drs_group`, `set_evc_mode`, `get_evc_mode`, `move_vm_to_resource_pool`, `configure_dpm`, `configure_ha_admission_control` |
+| `performance.py` | +5 | `get_datastore_performance`, `get_historical_performance`, `get_custom_metrics`, `list_performance_intervals`, `list_available_metrics` |
+| `networking.py` | +5 | `add_host_to_dvswitch`, `remove_host_from_dvswitch`, `list_dvswitch_ports`, `configure_dvs_pvlan`, `configure_host_vswitch_nic_teaming` |
+| `storage.py` | +8 | `create_vmfs_datastore`, `expand_vmfs_datastore`, `enable_iscsi_adapter`, `add_iscsi_target`, `create_datastore_cluster`, `configure_storage_drs`, `list_datastore_clusters`, `configure_sioc` |
+| `vm_devices.py` | +3 | `add_vtpm`, `set_vm_secure_boot`, `configure_vm_vbs` |
+| `resources.py` | +4 | `set_vm_cpu_allocation`, `set_vm_memory_allocation`, `set_vm_memory_hotadd`, `set_vm_latency_sensitivity` |
+| `batch.py` | +2 | `batch_reconfigure_vms`, `batch_migrate_vms` |
+| `tags.py` | +1 | `delete_custom_attribute` |
+| `snapshot.py` | +1 | `consolidate_vm_disks` |
+| `host.py` | +2 | `add_standalone_host`, `rename_host` |
+| `inventory.py` | +2 | `get_vm_screenshot`, `wait_for_vm_guest_ip` |
+
+### 変更
+
+- ツール総数: 204 → 301（+97）
+
+---
+
 ## [0.2.0] - 2026-05-04
 
 大幅な機能拡充。204 ツールへの拡張、インフラ改善、ドキュメント整備。

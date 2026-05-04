@@ -6,7 +6,9 @@ from pyVmomi import vim
 
 from vsphere_mcp.client import VSphereClient
 from vsphere_mcp.logging import get_logger
-from vsphere_mcp.tools._base import handle_tool_errors
+import time
+
+from vsphere_mcp.tools._base import find_vm_with_props, handle_tool_errors, require_confirm, wait_for_task
 from vsphere_mcp.utils.property_collector import collect_properties
 
 logger = get_logger(__name__)
@@ -496,3 +498,60 @@ def register_inventory_tools(mcp: Any, client: VSphereClient) -> None:
                     "networkFolder": net_folder.name if net_folder else None,
                 }
         return {"status": "error", "error": f"Datacenter '{datacenter_name}' not found"}
+
+    @mcp.tool()
+    @handle_tool_errors
+    def get_vm_screenshot(vm_name: str) -> dict[str, Any]:
+        """Take a screenshot of a running VM's console.
+
+        Args:
+            vm_name: Name of the VM to screenshot.
+        """
+        logger.info("get_vm_screenshot", vm_name=vm_name)
+        found = find_vm_with_props(client, vm_name)
+        if found is None:
+            return {"status": "error", "error": f"VM '{vm_name}' not found"}
+        task = found["_obj"].CreateScreenshot_Task()
+        result = wait_for_task(task)
+        screenshot_path = task.info.result if task.info.result else None
+        result["vm_name"] = vm_name
+        result["operation"] = "get_vm_screenshot"
+        result["screenshot_path"] = screenshot_path
+        return result
+
+    @mcp.tool()
+    @handle_tool_errors
+    def wait_for_vm_guest_ip(vm_name: str, timeout_seconds: int = 300) -> dict[str, Any]:
+        """Wait until a VM reports a guest IP address from VMware Tools.
+
+        Args:
+            vm_name: Name of the VM to wait for.
+            timeout_seconds: Maximum seconds to wait before timing out (default 300).
+        """
+        logger.info("wait_for_vm_guest_ip", vm_name=vm_name, timeout_seconds=timeout_seconds)
+        found = find_vm_with_props(client, vm_name, ["guest.ipAddress"])
+        if found is None:
+            return {"status": "error", "error": f"VM '{vm_name}' not found"}
+
+        vm_obj = found["_obj"]
+        start = time.time()
+        ip_address = None
+        while time.time() - start < timeout_seconds:
+            ip_address = vm_obj.guest.ipAddress if vm_obj.guest else None
+            if ip_address:
+                break
+            time.sleep(5)
+
+        if not ip_address:
+            return {
+                "status": "error",
+                "error": f"VM '{vm_name}' did not report an IP address within {timeout_seconds}s",
+                "vm_name": vm_name,
+                "timeout_seconds": timeout_seconds,
+            }
+        return {
+            "status": "success",
+            "vm_name": vm_name,
+            "ip_address": ip_address,
+            "elapsed_seconds": round(time.time() - start, 1),
+        }

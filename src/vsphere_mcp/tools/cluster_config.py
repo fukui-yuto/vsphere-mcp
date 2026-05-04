@@ -761,3 +761,385 @@ def register_cluster_config_tools(mcp: Any, client: VSphereClient) -> None:
         result["cluster_name"] = cluster_name
         result["group_name"] = group_name
         return result
+
+    @mcp.tool()
+    @handle_tool_errors
+    @require_confirm(danger_level="high")
+    def create_vm_host_affinity_rule(
+        cluster_name: str,
+        rule_name: str,
+        vm_group_name: str,
+        host_group_name: str,
+        affine: bool = True,
+        mandatory: bool = False,
+        enabled: bool = True,
+    ) -> dict[str, Any]:
+        """Create a VM-Host affinity rule in a cluster.
+
+        Args:
+            cluster_name: Name of the cluster.
+            rule_name: Name for the new VM-Host affinity rule.
+            vm_group_name: Name of the DRS VM group.
+            host_group_name: Name of the DRS host group.
+            affine: If True, create an affinity rule; if False, create an anti-affinity rule (default True).
+            mandatory: Whether the rule is mandatory (default False).
+            enabled: Whether the rule is enabled (default True).
+        """
+        logger.info(
+            "create_vm_host_affinity_rule",
+            cluster_name=cluster_name,
+            rule_name=rule_name,
+            affine=affine,
+        )
+        cluster = _find_cluster_by_name(client, cluster_name)
+        if cluster is None:
+            return {"status": "error", "error": f"Cluster '{cluster_name}' not found"}
+
+        rule = vim.cluster.VmHostRuleInfo(
+            name=rule_name,
+            enabled=enabled,
+            mandatory=mandatory,
+            vmGroupName=vm_group_name,
+            affineHostGroupName=host_group_name if affine else None,
+            antiAffineHostGroupName=host_group_name if not affine else None,
+        )
+        rule_spec = vim.cluster.RuleSpec(info=rule, operation="add")
+        spec = vim.cluster.ConfigSpecEx(rulesSpec=[rule_spec])
+        task = cluster.ReconfigureComputeResource_Task(spec=spec, modify=True)
+        result = wait_for_task(task)
+        result["operation"] = "create_vm_host_affinity_rule"
+        result["cluster_name"] = cluster_name
+        result["rule_name"] = rule_name
+        result["affine"] = affine
+        return result
+
+    @mcp.tool()
+    @handle_tool_errors
+    @require_confirm(danger_level="high")
+    def delete_drs_group(
+        cluster_name: str,
+        group_name: str,
+    ) -> dict[str, Any]:
+        """Delete a DRS VM or Host group from a cluster.
+
+        Args:
+            cluster_name: Name of the cluster.
+            group_name: Name of the DRS group (VM group or host group) to delete.
+        """
+        logger.info("delete_drs_group", cluster_name=cluster_name, group_name=group_name)
+        cluster = _find_cluster_by_name(client, cluster_name)
+        if cluster is None:
+            return {"status": "error", "error": f"Cluster '{cluster_name}' not found"}
+
+        config_ex = getattr(cluster, "configurationEx", None)
+        groups_raw = (getattr(config_ex, "group", None) if config_ex else None) or []
+        group_to_delete = None
+        for group in groups_raw:
+            if group.name == group_name:
+                group_to_delete = group
+                break
+        if group_to_delete is None:
+            return {
+                "status": "error",
+                "error": f"DRS group '{group_name}' not found in cluster '{cluster_name}'",
+            }
+
+        group_spec = vim.cluster.GroupSpec(info=group_to_delete, operation="remove")
+        spec = vim.cluster.ConfigSpecEx(groupSpec=[group_spec])
+        task = cluster.ReconfigureComputeResource_Task(spec=spec, modify=True)
+        result = wait_for_task(task)
+        result["operation"] = "delete_drs_group"
+        result["cluster_name"] = cluster_name
+        result["group_name"] = group_name
+        return result
+
+    @mcp.tool()
+    @handle_tool_errors
+    @require_confirm(danger_level="medium")
+    def update_drs_group(
+        cluster_name: str,
+        group_name: str,
+        vm_names: list[str] | None = None,
+        host_names: list[str] | None = None,
+    ) -> dict[str, Any]:
+        """Update the members of a DRS VM or Host group in a cluster.
+
+        Args:
+            cluster_name: Name of the cluster.
+            group_name: Name of the DRS group to update.
+            vm_names: New list of VM names for a VM group (replaces existing members).
+            host_names: New list of host names for a host group (replaces existing members).
+        """
+        logger.info("update_drs_group", cluster_name=cluster_name, group_name=group_name)
+        cluster = _find_cluster_by_name(client, cluster_name)
+        if cluster is None:
+            return {"status": "error", "error": f"Cluster '{cluster_name}' not found"}
+
+        config_ex = getattr(cluster, "configurationEx", None)
+        groups_raw = (getattr(config_ex, "group", None) if config_ex else None) or []
+        existing_group = None
+        for group in groups_raw:
+            if group.name == group_name:
+                existing_group = group
+                break
+        if existing_group is None:
+            return {
+                "status": "error",
+                "error": f"DRS group '{group_name}' not found in cluster '{cluster_name}'",
+            }
+
+        if isinstance(existing_group, vim.cluster.VmGroup):
+            if vm_names is None:
+                return {
+                    "status": "error",
+                    "error": f"Group '{group_name}' is a VM group; provide vm_names to update",
+                }
+            all_vms = collect_properties(client, vim.VirtualMachine, ["name"])
+            vm_refs = []
+            for vm_name in vm_names:
+                found = None
+                for item in all_vms:
+                    if item.get("name") == vm_name:
+                        found = item["_obj"]
+                        break
+                if found is None:
+                    return {"status": "error", "error": f"VM '{vm_name}' not found"}
+                vm_refs.append(found)
+            updated_group = vim.cluster.VmGroup(name=group_name, vm=vm_refs)
+        elif isinstance(existing_group, vim.cluster.HostGroup):
+            if host_names is None:
+                return {
+                    "status": "error",
+                    "error": f"Group '{group_name}' is a host group; provide host_names to update",
+                }
+            all_hosts = collect_properties(client, vim.HostSystem, ["name"])
+            host_refs = []
+            for host_name in host_names:
+                found = None
+                for item in all_hosts:
+                    if item.get("name") == host_name:
+                        found = item["_obj"]
+                        break
+                if found is None:
+                    return {"status": "error", "error": f"Host '{host_name}' not found"}
+                host_refs.append(found)
+            updated_group = vim.cluster.HostGroup(name=group_name, host=host_refs)
+        else:
+            return {
+                "status": "error",
+                "error": f"Group '{group_name}' is of unknown type: {type(existing_group).__name__}",
+            }
+
+        group_spec = vim.cluster.GroupSpec(info=updated_group, operation="edit")
+        spec = vim.cluster.ConfigSpecEx(groupSpec=[group_spec])
+        task = cluster.ReconfigureComputeResource_Task(spec=spec, modify=True)
+        result = wait_for_task(task)
+        result["operation"] = "update_drs_group"
+        result["cluster_name"] = cluster_name
+        result["group_name"] = group_name
+        return result
+
+    @mcp.tool()
+    @handle_tool_errors
+    @require_confirm(danger_level="high")
+    def set_evc_mode(
+        cluster_name: str,
+        evc_mode_key: str | None = None,
+    ) -> dict[str, Any]:
+        """Set or disable the EVC (Enhanced vMotion Compatibility) mode on a cluster.
+
+        Args:
+            cluster_name: Name of the cluster.
+            evc_mode_key: EVC mode key to enable (e.g. 'intel-merom', 'amd-opteron-g1').
+                          Set to None to disable EVC mode.
+        """
+        logger.info("set_evc_mode", cluster_name=cluster_name, evc_mode_key=evc_mode_key)
+        cluster = _find_cluster_by_name(client, cluster_name)
+        if cluster is None:
+            return {"status": "error", "error": f"Cluster '{cluster_name}' not found"}
+
+        if evc_mode_key is not None:
+            task = cluster.ConfigureEvcMode_Task(evcModeKey=evc_mode_key)
+        else:
+            task = cluster.DisableEvcMode_Task()
+
+        result = wait_for_task(task)
+        result["operation"] = "set_evc_mode"
+        result["cluster_name"] = cluster_name
+        result["evc_mode_key"] = evc_mode_key
+        return result
+
+    @mcp.tool()
+    @handle_tool_errors
+    def get_evc_mode(
+        cluster_name: str,
+    ) -> dict[str, Any]:
+        """Get the current EVC (Enhanced vMotion Compatibility) mode of a cluster.
+
+        Args:
+            cluster_name: Name of the cluster.
+        """
+        logger.info("get_evc_mode", cluster_name=cluster_name)
+        cluster = _find_cluster_by_name(client, cluster_name)
+        if cluster is None:
+            return {"status": "error", "error": f"Cluster '{cluster_name}' not found"}
+
+        summary = getattr(cluster, "summary", None)
+        current_evc_mode = getattr(summary, "currentEVCModeKey", None) if summary else None
+        max_evc_mode = getattr(summary, "maxEVCModeKey", None) if summary else None
+
+        return {
+            "cluster_name": cluster_name,
+            "currentEVCModeKey": current_evc_mode,
+            "maxEVCModeKey": max_evc_mode,
+        }
+
+    @mcp.tool()
+    @handle_tool_errors
+    @require_confirm(danger_level="high")
+    def move_vm_to_resource_pool(
+        pool_name: str,
+        vm_names: list[str],
+    ) -> dict[str, Any]:
+        """Move one or more VMs into a resource pool.
+
+        Args:
+            pool_name: Name of the destination resource pool.
+            vm_names: List of VM names to move into the resource pool.
+        """
+        logger.info("move_vm_to_resource_pool", pool_name=pool_name, vm_count=len(vm_names))
+
+        pool_items = collect_properties(client, vim.ResourcePool, ["name"])
+        pool_obj = None
+        for item in pool_items:
+            if item.get("name") == pool_name:
+                pool_obj = item["_obj"]
+                break
+        if pool_obj is None:
+            return {"status": "error", "error": f"Resource pool '{pool_name}' not found"}
+
+        all_vms = collect_properties(client, vim.VirtualMachine, ["name"])
+        vm_refs = []
+        for vm_name in vm_names:
+            found = None
+            for item in all_vms:
+                if item.get("name") == vm_name:
+                    found = item["_obj"]
+                    break
+            if found is None:
+                return {"status": "error", "error": f"VM '{vm_name}' not found"}
+            vm_refs.append(found)
+
+        pool_obj.MoveIntoResourcePool(list=vm_refs)
+        return {
+            "status": "success",
+            "operation": "move_vm_to_resource_pool",
+            "pool_name": pool_name,
+            "vm_names": vm_names,
+        }
+
+    @mcp.tool()
+    @handle_tool_errors
+    @require_confirm(danger_level="high")
+    def configure_dpm(
+        cluster_name: str,
+        enabled: bool,
+        behavior: str | None = "automated",
+    ) -> dict[str, Any]:
+        """Configure DPM (Distributed Power Management) on a cluster.
+
+        Args:
+            cluster_name: Name of the cluster.
+            enabled: Whether to enable DPM.
+            behavior: DPM automation behavior: 'automated' or 'manual' (default 'automated').
+        """
+        logger.info("configure_dpm", cluster_name=cluster_name, enabled=enabled, behavior=behavior)
+        cluster = _find_cluster_by_name(client, cluster_name)
+        if cluster is None:
+            return {"status": "error", "error": f"Cluster '{cluster_name}' not found"}
+
+        valid_behaviors = {"automated", "manual"}
+        if behavior is not None and behavior not in valid_behaviors:
+            return {
+                "status": "error",
+                "error": f"Invalid behavior '{behavior}'. Valid values: {', '.join(sorted(valid_behaviors))}",
+            }
+
+        dpm_config = vim.cluster.DpmConfigInfo(enabled=enabled)
+        if behavior is not None:
+            behavior_enum_map = {
+                "automated": vim.cluster.DpmConfigInfo.DpmBehavior.automated,
+                "manual": vim.cluster.DpmConfigInfo.DpmBehavior.manual,
+            }
+            dpm_config.defaultDpmBehavior = behavior_enum_map[behavior]
+
+        spec = vim.cluster.ConfigSpecEx(dpmConfig=dpm_config)
+        task = cluster.ReconfigureComputeResource_Task(spec=spec, modify=True)
+        result = wait_for_task(task)
+        result["operation"] = "configure_dpm"
+        result["cluster_name"] = cluster_name
+        result["enabled"] = enabled
+        result["behavior"] = behavior
+        return result
+
+    @mcp.tool()
+    @handle_tool_errors
+    @require_confirm(danger_level="high")
+    def configure_ha_admission_control(
+        cluster_name: str,
+        policy_type: str,
+        failover_level: int | None = 1,
+        cpu_percent: int | None = None,
+        memory_percent: int | None = None,
+    ) -> dict[str, Any]:
+        """Configure HA admission control policy on a cluster.
+
+        Args:
+            cluster_name: Name of the cluster.
+            policy_type: Admission control policy type: 'failoverLevel', 'percentage', or 'disabled'.
+            failover_level: Number of host failures to tolerate (used with 'failoverLevel' policy, default 1).
+            cpu_percent: CPU failover capacity percentage (used with 'percentage' policy).
+            memory_percent: Memory failover capacity percentage (used with 'percentage' policy).
+        """
+        logger.info(
+            "configure_ha_admission_control",
+            cluster_name=cluster_name,
+            policy_type=policy_type,
+        )
+        cluster = _find_cluster_by_name(client, cluster_name)
+        if cluster is None:
+            return {"status": "error", "error": f"Cluster '{cluster_name}' not found"}
+
+        valid_policy_types = {"failoverLevel", "percentage", "disabled"}
+        if policy_type not in valid_policy_types:
+            return {
+                "status": "error",
+                "error": f"Invalid policy_type '{policy_type}'. "
+                f"Valid values: {', '.join(sorted(valid_policy_types))}",
+            }
+
+        das_config = vim.cluster.DasConfigInfo()
+        if policy_type == "disabled":
+            das_config.admissionControlEnabled = False
+        elif policy_type == "failoverLevel":
+            das_config.admissionControlEnabled = True
+            level = failover_level if failover_level is not None else 1
+            das_config.admissionControlPolicy = vim.cluster.FailoverLevelAdmissionControlPolicy(
+                failoverLevel=level,
+            )
+        elif policy_type == "percentage":
+            das_config.admissionControlEnabled = True
+            cpu = cpu_percent if cpu_percent is not None else 25
+            mem = memory_percent if memory_percent is not None else 25
+            das_config.admissionControlPolicy = vim.cluster.FailoverResourcesAdmissionControlPolicy(
+                cpuFailoverResourcesPercent=cpu,
+                memoryFailoverResourcesPercent=mem,
+            )
+
+        spec = vim.cluster.ConfigSpecEx(dasConfig=das_config)
+        task = cluster.ReconfigureComputeResource_Task(spec=spec, modify=True)
+        result = wait_for_task(task)
+        result["operation"] = "configure_ha_admission_control"
+        result["cluster_name"] = cluster_name
+        result["policy_type"] = policy_type
+        return result

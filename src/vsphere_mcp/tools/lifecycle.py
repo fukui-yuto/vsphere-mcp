@@ -47,8 +47,22 @@ def register_lifecycle_tools(mcp: Any, client: VSphereClient) -> None:
         host_name: str | None = None,
         resource_pool_name: str | None = None,
         folder_name: str | None = None,
+        customization_spec_name: str | None = None,
+        disk_format: str | None = None,
     ) -> dict[str, Any]:
-        """Clone an existing virtual machine."""
+        """Clone an existing virtual machine.
+
+        Args:
+            vm_name: Name of the source VM.
+            clone_name: Name for the clone.
+            power_on: Power on the clone after creation (default False).
+            datastore_name: Target datastore (optional).
+            host_name: Target host (optional).
+            resource_pool_name: Target resource pool (optional).
+            folder_name: Target folder (optional).
+            customization_spec_name: Guest OS customization spec to apply (optional).
+            disk_format: Disk format: 'thin', 'thick', or None to keep same as source.
+        """
         logger.info("clone_vm", vm_name=vm_name, clone_name=clone_name)
         from vsphere_mcp.utils.property_collector import collect_properties
 
@@ -89,11 +103,31 @@ def register_lifecycle_tools(mcp: Any, client: VSphereClient) -> None:
         else:
             folder = vm_obj.parent
 
+        if disk_format is not None:
+            fmt = disk_format.lower()
+            if fmt == "thin":
+                relocate_spec.transform = vim.vm.RelocateSpec.Transformation.sparse
+            elif fmt == "thick":
+                relocate_spec.transform = vim.vm.RelocateSpec.Transformation.flat
+            else:
+                return {"status": "error", "error": f"disk_format must be 'thin' or 'thick', got '{disk_format}'"}
+
         clone_spec = vim.vm.CloneSpec(
             location=relocate_spec,
             powerOn=power_on,
             template=False,
         )
+
+        if customization_spec_name is not None:
+            spec_manager = client.content.customizationSpecManager
+            if spec_manager is None:
+                return {"status": "error", "error": "Customization spec manager not available"}
+            try:
+                cust_spec_item = spec_manager.GetCustomizationSpec(name=customization_spec_name)
+                clone_spec.customization = cust_spec_item.spec
+            except Exception as e:
+                return {"status": "error", "error": f"Customization spec '{customization_spec_name}' not found: {e}"}
+
         task = vm_obj.Clone(folder=folder, name=clone_name, spec=clone_spec)
         result = wait_for_task(task)
         result["vm_name"] = vm_name
@@ -112,8 +146,26 @@ def register_lifecycle_tools(mcp: Any, client: VSphereClient) -> None:
         host_name: str | None = None,
         resource_pool_name: str | None = None,
         folder_name: str | None = None,
+        customization_spec_name: str | None = None,
+        disk_format: str | None = None,
+        num_cpus: int | None = None,
+        memory_mb: int | None = None,
     ) -> dict[str, Any]:
-        """Deploy a new VM from a template."""
+        """Deploy a new VM from a template.
+
+        Args:
+            template_name: Name of the template to deploy from.
+            vm_name: Name for the new VM.
+            power_on: Power on after deploy (default False).
+            datastore_name: Target datastore (optional).
+            host_name: Target host (optional).
+            resource_pool_name: Target resource pool (optional).
+            folder_name: Target folder (optional).
+            customization_spec_name: Guest OS customization spec to apply (optional).
+            disk_format: Disk format: 'thin', 'thick', or None to keep same as template.
+            num_cpus: Override CPU count (optional).
+            memory_mb: Override memory in MB (optional).
+        """
         logger.info("deploy_from_template", template_name=template_name, vm_name=vm_name)
         from vsphere_mcp.utils.property_collector import collect_properties
 
@@ -161,11 +213,39 @@ def register_lifecycle_tools(mcp: Any, client: VSphereClient) -> None:
         else:
             folder = template_obj.parent
 
+        if disk_format is not None:
+            fmt = disk_format.lower()
+            if fmt == "thin":
+                relocate_spec.transform = vim.vm.RelocateSpec.Transformation.sparse
+            elif fmt == "thick":
+                relocate_spec.transform = vim.vm.RelocateSpec.Transformation.flat
+            else:
+                return {"status": "error", "error": f"disk_format must be 'thin' or 'thick', got '{disk_format}'"}
+
         clone_spec = vim.vm.CloneSpec(
             location=relocate_spec,
             powerOn=power_on,
             template=False,
         )
+
+        if customization_spec_name is not None:
+            spec_manager = client.content.customizationSpecManager
+            if spec_manager is None:
+                return {"status": "error", "error": "Customization spec manager not available"}
+            try:
+                cust_spec_item = spec_manager.GetCustomizationSpec(name=customization_spec_name)
+                clone_spec.customization = cust_spec_item.spec
+            except Exception as e:
+                return {"status": "error", "error": f"Customization spec '{customization_spec_name}' not found: {e}"}
+
+        if num_cpus is not None or memory_mb is not None:
+            config_spec = vim.vm.ConfigSpec()
+            if num_cpus is not None:
+                config_spec.numCPUs = num_cpus
+            if memory_mb is not None:
+                config_spec.memoryMB = memory_mb
+            clone_spec.config = config_spec
+
         task = template_obj.Clone(folder=folder, name=vm_name, spec=clone_spec)
         result = wait_for_task(task)
         result["template_name"] = template_name
@@ -306,8 +386,32 @@ def register_lifecycle_tools(mcp: Any, client: VSphereClient) -> None:
         datastore_name: str,
         resource_pool_name: str | None = None,
         firmware: str = "bios",
+        num_cores_per_socket: int = 1,
+        cpu_hot_add_enabled: bool = False,
+        memory_hot_add_enabled: bool = False,
+        nested_hypervisor_enabled: bool = False,
+        secure_boot: bool = False,
+        annotation: str | None = None,
     ) -> dict[str, Any]:
-        """Create a new empty virtual machine with the specified configuration."""
+        """Create a new empty virtual machine with the specified configuration.
+
+        Args:
+            datacenter_name: Name of the datacenter.
+            folder_name: Name of the VM folder.
+            vm_name: Name for the new VM.
+            num_cpus: Number of virtual CPUs.
+            memory_mb: Memory size in MB.
+            guest_id: Guest OS type ID (use list_guest_os_types for valid values).
+            datastore_name: Name of the target datastore.
+            resource_pool_name: Resource pool name (optional, uses first available if not specified).
+            firmware: Firmware type: 'bios' or 'efi' (default 'bios').
+            num_cores_per_socket: Number of cores per CPU socket (default 1).
+            cpu_hot_add_enabled: Enable CPU hot-add (default False).
+            memory_hot_add_enabled: Enable memory hot-add (default False).
+            nested_hypervisor_enabled: Enable nested virtualization / VHV (default False).
+            secure_boot: Enable EFI Secure Boot (requires firmware='efi', default False).
+            annotation: VM notes/annotation (optional).
+        """
         logger.info(
             "create_vm",
             datacenter_name=datacenter_name,
@@ -360,22 +464,238 @@ def register_lifecycle_tools(mcp: Any, client: VSphereClient) -> None:
             if pool_obj is None:
                 return {"status": "error", "error": "No resource pool found"}
 
+        if secure_boot and firmware != "efi":
+            return {"status": "error", "error": "secure_boot requires firmware='efi'"}
+        if num_cores_per_socket < 1:
+            return {"status": "error", "error": "num_cores_per_socket must be at least 1"}
+        if num_cpus % num_cores_per_socket != 0:
+            return {"status": "error", "error": "num_cpus must be divisible by num_cores_per_socket"}
+
         # Build VM config spec
         vm_file_info = vim.vm.FileInfo(vmPathName=f"[{datastore_name}]")
         config_spec = vim.vm.ConfigSpec(
             name=vm_name,
             numCPUs=num_cpus,
+            numCoresPerSocket=num_cores_per_socket,
             memoryMB=memory_mb,
             guestId=guest_id,
             files=vm_file_info,
             firmware=firmware,
+            cpuHotAddEnabled=cpu_hot_add_enabled,
+            memoryHotAddEnabled=memory_hot_add_enabled,
+            nestedHVEnabled=nested_hypervisor_enabled,
         )
+        if annotation is not None:
+            config_spec.annotation = annotation
+        if secure_boot:
+            config_spec.bootOptions = vim.vm.BootOptions(efiSecureBootEnabled=True)
 
         task = folder_obj.CreateVM_Task(config=config_spec, pool=pool_obj)
         result = wait_for_task(task)
         result["vm_name"] = vm_name
         result["operation"] = "create_vm"
         return result
+
+    @mcp.tool()
+    @handle_tool_errors
+    @require_confirm(danger_level="high")
+    def linked_clone_vm(
+        vm_name: str,
+        clone_name: str,
+        snapshot_name: str,
+        power_on: bool = False,
+    ) -> dict[str, Any]:
+        """Create a linked clone of a VM from a named snapshot.
+
+        The snapshot must already exist. Linked clones share the parent's disk
+        and consume less space but depend on the source snapshot remaining intact.
+        """
+        logger.info("linked_clone_vm", vm_name=vm_name, clone_name=clone_name, snapshot_name=snapshot_name)
+        from vsphere_mcp.tools.snapshot import _find_snapshot_by_name
+
+        found = find_vm_with_props(client, vm_name, ["snapshot"])
+        if found is None:
+            return {"status": "error", "error": f"VM '{vm_name}' not found"}
+
+        snap_info = found.get("snapshot")
+        if not snap_info or not hasattr(snap_info, "rootSnapshotList"):
+            return {"status": "error", "error": f"No snapshots found for VM '{vm_name}'"}
+
+        snap_ref = _find_snapshot_by_name(snap_info.rootSnapshotList, snapshot_name)
+        if snap_ref is None:
+            return {
+                "status": "error",
+                "error": f"Snapshot '{snapshot_name}' not found on VM '{vm_name}'",
+            }
+
+        vm_obj = found["_obj"]
+        relocate_spec = vim.vm.RelocateSpec(diskMoveType="createNewChildDiskBacking")
+        clone_spec = vim.vm.CloneSpec(
+            location=relocate_spec,
+            powerOn=power_on,
+            template=False,
+            snapshot=snap_ref,
+        )
+        task = vm_obj.Clone(folder=vm_obj.parent, name=clone_name, spec=clone_spec)
+        result = wait_for_task(task)
+        result["vm_name"] = vm_name
+        result["clone_name"] = clone_name
+        result["snapshot_name"] = snapshot_name
+        result["operation"] = "linked_clone_vm"
+        return result
+
+    @mcp.tool()
+    @handle_tool_errors
+    @require_confirm(danger_level="medium")
+    def enable_vm_cbt(
+        vm_name: str,
+        enabled: bool = True,
+    ) -> dict[str, Any]:
+        """Enable or disable Changed Block Tracking (CBT) on a virtual machine.
+
+        CBT allows incremental backup tools to identify which disk blocks have
+        changed since the last backup. The VM must be powered off or a
+        snapshot cycle may be required for the change to take effect.
+        """
+        logger.info("enable_vm_cbt", vm_name=vm_name, enabled=enabled)
+        found = find_vm_with_props(client, vm_name)
+        if found is None:
+            return {"status": "error", "error": f"VM '{vm_name}' not found"}
+
+        vm_obj = found["_obj"]
+        config_spec = vim.vm.ConfigSpec(changeTrackingEnabled=enabled)
+        task = vm_obj.ReconfigVM_Task(spec=config_spec)
+        result = wait_for_task(task)
+        result["vm_name"] = vm_name
+        result["change_tracking_enabled"] = enabled
+        result["operation"] = "enable_vm_cbt"
+        return result
+
+    @mcp.tool()
+    @handle_tool_errors
+    def query_vm_changed_disk_areas(
+        vm_name: str,
+        snapshot_name: str,
+        disk_key: int,
+        start_offset: int = 0,
+        change_id: str = "*",
+    ) -> dict[str, Any]:
+        """Query changed disk areas for incremental backup using Changed Block Tracking.
+
+        Returns disk extents (offset + length) that have changed since the
+        change_id baseline. Use '*' as change_id for the first query.
+        Requires CBT to be enabled on the VM.
+        """
+        logger.info(
+            "query_vm_changed_disk_areas",
+            vm_name=vm_name,
+            snapshot_name=snapshot_name,
+            disk_key=disk_key,
+            change_id=change_id,
+        )
+        from vsphere_mcp.tools.snapshot import _find_snapshot_by_name
+
+        found = find_vm_with_props(client, vm_name, ["snapshot"])
+        if found is None:
+            return {"status": "error", "error": f"VM '{vm_name}' not found"}
+
+        snap_info = found.get("snapshot")
+        if not snap_info or not hasattr(snap_info, "rootSnapshotList"):
+            return {"status": "error", "error": f"No snapshots found for VM '{vm_name}'"}
+
+        snap_ref = _find_snapshot_by_name(snap_info.rootSnapshotList, snapshot_name)
+        if snap_ref is None:
+            return {
+                "status": "error",
+                "error": f"Snapshot '{snapshot_name}' not found on VM '{vm_name}'",
+            }
+
+        vm_obj = found["_obj"]
+        disk_change_info = vm_obj.QueryChangedDiskAreas(
+            snapshot=snap_ref,
+            deviceKey=disk_key,
+            startOffset=start_offset,
+            changeId=change_id,
+        )
+
+        extents = []
+        for ext in disk_change_info.changedArea or []:
+            extents.append({"start": ext.start, "length": ext.length})
+
+        return {
+            "vm_name": vm_name,
+            "snapshot_name": snapshot_name,
+            "disk_key": disk_key,
+            "start_offset": start_offset,
+            "change_id": change_id,
+            "total_extents": len(extents),
+            "changed_areas": extents,
+        }
+
+    @mcp.tool()
+    @handle_tool_errors
+    @require_confirm(danger_level="medium")
+    def answer_vm_question(
+        vm_name: str,
+        choice_id: str,
+    ) -> dict[str, Any]:
+        """Answer a pending question blocking a virtual machine.
+
+        Some VM operations (power on, snapshot revert, etc.) can stall waiting
+        for user input. Use get_vm_pending_question to inspect the choices,
+        then supply the choice_id (e.g. '0', '1') to unblock the VM.
+        """
+        logger.info("answer_vm_question", vm_name=vm_name, choice_id=choice_id)
+        found = find_vm_with_props(client, vm_name, ["runtime.question"])
+        if found is None:
+            return {"status": "error", "error": f"VM '{vm_name}' not found"}
+
+        vm_obj = found["_obj"]
+        question = vm_obj.runtime.question
+        if question is None:
+            return {"status": "error", "error": f"VM '{vm_name}' has no pending question"}
+
+        vm_obj.AnswerVM(questionId=question.id, answerChoice=choice_id)
+        return {
+            "status": "success",
+            "vm_name": vm_name,
+            "question_id": question.id,
+            "choice_id": choice_id,
+            "operation": "answer_vm_question",
+        }
+
+    @mcp.tool()
+    @handle_tool_errors
+    def get_vm_pending_question(vm_name: str) -> dict[str, Any]:
+        """Get the pending question blocking a virtual machine, if any.
+
+        Returns the question text and the available answer choices. If no
+        question is pending, reports accordingly.
+        """
+        logger.info("get_vm_pending_question", vm_name=vm_name)
+        found = find_vm_with_props(client, vm_name, ["runtime.question"])
+        if found is None:
+            return {"status": "error", "error": f"VM '{vm_name}' not found"}
+
+        vm_obj = found["_obj"]
+        question = vm_obj.runtime.question
+        if question is None:
+            return {"vm_name": vm_name, "pending_question": None, "message": "No pending question"}
+
+        choices = []
+        if hasattr(question, "choice") and question.choice:
+            for opt in question.choice.choiceInfo or []:
+                choices.append({"key": opt.key, "label": opt.label})
+
+        return {
+            "vm_name": vm_name,
+            "pending_question": {
+                "id": question.id,
+                "text": question.text,
+                "choices": choices,
+                "default_choice": question.choice.defaultIndex if hasattr(question.choice, "defaultIndex") else None,
+            },
+        }
 
     @mcp.tool()
     @handle_tool_errors

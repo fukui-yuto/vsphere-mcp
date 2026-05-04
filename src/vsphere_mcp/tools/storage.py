@@ -519,3 +519,405 @@ def register_storage_tools(mcp: Any, client: VSphereClient) -> None:
                     "num_hosts": len(host_names),
                 }
         return {"status": "error", "error": f"Datastore '{datastore_name}' not found"}
+
+    @mcp.tool()
+    @handle_tool_errors
+    @require_confirm(danger_level="high")
+    def create_vmfs_datastore(
+        host_name: str,
+        datastore_name: str,
+        device_path: str,
+        vmfs_version: int = 6,
+    ) -> dict[str, Any]:
+        """Create a VMFS datastore on an ESXi host.
+
+        Args:
+            host_name: Name of the ESXi host.
+            datastore_name: Name for the new datastore.
+            device_path: Device path for the VMFS volume (e.g. "/vmfs/devices/disks/naa.xxx").
+            vmfs_version: VMFS major version number (default 6).
+        """
+        logger.info(
+            "create_vmfs_datastore",
+            host_name=host_name,
+            datastore_name=datastore_name,
+            device_path=device_path,
+            vmfs_version=vmfs_version,
+        )
+
+        host_obj = find_host_by_name(client, host_name)
+        if host_obj is None:
+            return {"status": "error", "error": f"Host '{host_name}' not found"}
+
+        cm = getattr(host_obj, "configManager", None)
+        if cm is None:
+            return {"status": "error", "error": "configManager not available on this host"}
+        datastore_system = cm.datastoreSystem
+        if datastore_system is None:
+            return {"status": "error", "error": "datastoreSystem not available"}
+
+        vmfs_spec = vim.host.VmfsDatastoreCreateSpec(
+            diskUuid=device_path,
+            partition=vim.host.DiskPartitionInfo.Specification(
+                totalSectors=0,
+                partition=[],
+            ),
+            vmfs=vim.host.VmfsVolume.Specification(
+                volumeName=datastore_name,
+                majorVersion=vmfs_version,
+                blockSizeMb=1,
+                extent=vim.host.ScsiDisk.Partition(
+                    diskName=device_path,
+                    partition=1,
+                ),
+            ),
+        )
+
+        try:
+            datastore_system.CreateVmfsDatastore(spec=vmfs_spec)
+        except Exception as e:
+            return {"status": "error", "error": f"Failed to create VMFS datastore: {e}"}
+
+        return {
+            "status": "success",
+            "operation": "create_vmfs_datastore",
+            "host_name": host_name,
+            "datastore_name": datastore_name,
+            "device_path": device_path,
+            "vmfs_version": vmfs_version,
+        }
+
+    @mcp.tool()
+    @handle_tool_errors
+    @require_confirm(danger_level="high")
+    def expand_vmfs_datastore(
+        host_name: str,
+        datastore_name: str,
+    ) -> dict[str, Any]:
+        """Expand a VMFS datastore to use all available space on its device.
+
+        Args:
+            host_name: Name of the ESXi host that has the datastore mounted.
+            datastore_name: Name of the VMFS datastore to expand.
+        """
+        logger.info("expand_vmfs_datastore", host_name=host_name, datastore_name=datastore_name)
+
+        host_obj = find_host_by_name(client, host_name)
+        if host_obj is None:
+            return {"status": "error", "error": f"Host '{host_name}' not found"}
+
+        cm = getattr(host_obj, "configManager", None)
+        if cm is None:
+            return {"status": "error", "error": "configManager not available on this host"}
+        datastore_system = cm.datastoreSystem
+        if datastore_system is None:
+            return {"status": "error", "error": "datastoreSystem not available"}
+
+        ds_items = collect_properties(client, vim.Datastore, ["name"])
+        ds_obj = None
+        for item in ds_items:
+            if item.get("name") == datastore_name:
+                ds_obj = item["_obj"]
+                break
+        if ds_obj is None:
+            return {"status": "error", "error": f"Datastore '{datastore_name}' not found"}
+
+        try:
+            expand_options = datastore_system.QueryVmfsDatastoreExpandOptions(datastore=ds_obj)
+            if not expand_options:
+                return {"status": "error", "error": "No expansion options available for this datastore"}
+            datastore_system.ExpandVmfsDatastore(datastore=ds_obj, spec=expand_options[0].spec)
+        except Exception as e:
+            return {"status": "error", "error": f"Failed to expand VMFS datastore: {e}"}
+
+        return {
+            "status": "success",
+            "operation": "expand_vmfs_datastore",
+            "host_name": host_name,
+            "datastore_name": datastore_name,
+        }
+
+    @mcp.tool()
+    @handle_tool_errors
+    @require_confirm(danger_level="high")
+    def enable_iscsi_adapter(host_name: str) -> dict[str, Any]:
+        """Enable the software iSCSI adapter on an ESXi host.
+
+        Args:
+            host_name: Name of the ESXi host.
+        """
+        logger.info("enable_iscsi_adapter", host_name=host_name)
+
+        host_obj = find_host_by_name(client, host_name)
+        if host_obj is None:
+            return {"status": "error", "error": f"Host '{host_name}' not found"}
+
+        cm = getattr(host_obj, "configManager", None)
+        if cm is None:
+            return {"status": "error", "error": "configManager not available on this host"}
+        storage_system = cm.storageSystem
+        if storage_system is None:
+            return {"status": "error", "error": "storageSystem not available"}
+
+        storage_system.UpdateSoftwareInternetScsiEnabled(enabled=True)
+
+        return {
+            "status": "success",
+            "operation": "enable_iscsi_adapter",
+            "host_name": host_name,
+        }
+
+    @mcp.tool()
+    @handle_tool_errors
+    @require_confirm(danger_level="high")
+    def add_iscsi_target(
+        host_name: str,
+        iscsi_hba_device: str,
+        target_address: str,
+        target_port: int = 3260,
+    ) -> dict[str, Any]:
+        """Add an iSCSI send target to an ESXi host's iSCSI HBA.
+
+        Args:
+            host_name: Name of the ESXi host.
+            iscsi_hba_device: iSCSI HBA device name (e.g. "vmhba65").
+            target_address: IP address or hostname of the iSCSI target.
+            target_port: TCP port of the iSCSI target (default 3260).
+        """
+        logger.info(
+            "add_iscsi_target",
+            host_name=host_name,
+            iscsi_hba_device=iscsi_hba_device,
+            target_address=target_address,
+            target_port=target_port,
+        )
+
+        host_obj = find_host_by_name(client, host_name)
+        if host_obj is None:
+            return {"status": "error", "error": f"Host '{host_name}' not found"}
+
+        cm = getattr(host_obj, "configManager", None)
+        if cm is None:
+            return {"status": "error", "error": "configManager not available on this host"}
+        storage_system = cm.storageSystem
+        if storage_system is None:
+            return {"status": "error", "error": "storageSystem not available"}
+
+        send_target = vim.host.InternetScsiHba.SendTarget(
+            address=target_address,
+            port=target_port,
+        )
+        storage_system.AddInternetScsiSendTargets(
+            iScsiHbaDevice=iscsi_hba_device,
+            targets=[send_target],
+        )
+
+        return {
+            "status": "success",
+            "operation": "add_iscsi_target",
+            "host_name": host_name,
+            "iscsi_hba_device": iscsi_hba_device,
+            "target_address": target_address,
+            "target_port": target_port,
+        }
+
+    @mcp.tool()
+    @handle_tool_errors
+    @require_confirm(danger_level="high")
+    def create_datastore_cluster(
+        datacenter_name: str,
+        cluster_name: str,
+    ) -> dict[str, Any]:
+        """Create a datastore cluster (StoragePod) in a datacenter.
+
+        Args:
+            datacenter_name: Name of the datacenter to create the datastore cluster in.
+            cluster_name: Name for the new datastore cluster.
+        """
+        logger.info(
+            "create_datastore_cluster",
+            datacenter_name=datacenter_name,
+            cluster_name=cluster_name,
+        )
+
+        dc_items = collect_properties(client, vim.Datacenter, ["name", "datastoreFolder"])
+        dc_obj = None
+        datastore_folder = None
+        for item in dc_items:
+            if item.get("name") == datacenter_name:
+                dc_obj = item["_obj"]
+                datastore_folder = item.get("datastoreFolder")
+                break
+        if dc_obj is None:
+            return {"status": "error", "error": f"Datacenter '{datacenter_name}' not found"}
+        if datastore_folder is None:
+            return {"status": "error", "error": "datastoreFolder not available on this datacenter"}
+
+        datastore_folder.CreateStoragePod(name=cluster_name)
+
+        return {
+            "status": "success",
+            "operation": "create_datastore_cluster",
+            "datacenter_name": datacenter_name,
+            "cluster_name": cluster_name,
+        }
+
+    @mcp.tool()
+    @handle_tool_errors
+    @require_confirm(danger_level="high")
+    def configure_storage_drs(
+        cluster_name: str,
+        enabled: bool = True,
+        automation_level: str = "fullyAutomated",
+        space_threshold_percent: int = 80,
+    ) -> dict[str, Any]:
+        """Configure Storage DRS on a datastore cluster.
+
+        Args:
+            cluster_name: Name of the datastore cluster (StoragePod).
+            enabled: Enable or disable Storage DRS (default True).
+            automation_level: DRS automation level: "fullyAutomated" or "manual" (default "fullyAutomated").
+            space_threshold_percent: Space utilization threshold percentage to trigger DRS (default 80).
+        """
+        logger.info(
+            "configure_storage_drs",
+            cluster_name=cluster_name,
+            enabled=enabled,
+            automation_level=automation_level,
+            space_threshold_percent=space_threshold_percent,
+        )
+
+        valid_automation_levels = ("fullyAutomated", "manual")
+        if automation_level not in valid_automation_levels:
+            return {
+                "status": "error",
+                "error": f"automation_level must be one of: {', '.join(valid_automation_levels)}",
+            }
+        if not (1 <= space_threshold_percent <= 100):
+            return {"status": "error", "error": "space_threshold_percent must be between 1 and 100"}
+
+        pod_items = collect_properties(client, vim.StoragePod, ["name"])
+        pod_obj = None
+        for item in pod_items:
+            if item.get("name") == cluster_name:
+                pod_obj = item["_obj"]
+                break
+        if pod_obj is None:
+            return {"status": "error", "error": f"Datastore cluster '{cluster_name}' not found"}
+
+        sdrs_config = vim.storageDrs.ConfigSpec(
+            enabled=enabled,
+            automationOverrides=vim.storageDrs.AutomationConfig(
+                spaceLoadBalanceAutomationMode=automation_level,
+            ),
+            spaceLoadBalanceConfig=vim.storageDrs.SpaceLoadBalanceConfig(
+                spaceThresholdMode="utilization",
+                spaceUtilizationThreshold=space_threshold_percent,
+            ),
+        )
+
+        storage_rm = client.content.storageResourceManager
+        task = storage_rm.ConfigureStorageDrsForPod_Task(
+            pod=pod_obj,
+            spec=sdrs_config,
+            modify=True,
+        )
+        result = wait_for_task(task)
+
+        if result["status"] != "success":
+            return {"status": "error", "error": result.get("message", "Failed to configure Storage DRS")}
+
+        return {
+            "status": "success",
+            "operation": "configure_storage_drs",
+            "cluster_name": cluster_name,
+            "enabled": enabled,
+            "automation_level": automation_level,
+            "space_threshold_percent": space_threshold_percent,
+        }
+
+    @mcp.tool()
+    @handle_tool_errors
+    def list_datastore_clusters() -> dict[str, Any]:
+        """List all datastore clusters (StoragePods) in the vSphere environment."""
+        logger.info("list_datastore_clusters")
+
+        items = collect_properties(client, vim.StoragePod, ["name", "summary"])
+        clusters = []
+        for item in items:
+            summary = item.get("summary")
+            capacity = getattr(summary, "capacity", None)
+            free_space = getattr(summary, "freeSpace", None)
+            clusters.append({
+                "name": item.get("name"),
+                "capacity_gb": round(capacity / (1024**3), 2) if capacity else None,
+                "free_gb": round(free_space / (1024**3), 2) if free_space else None,
+                "used_gb": (
+                    round((capacity - free_space) / (1024**3), 2)
+                    if capacity and free_space
+                    else None
+                ),
+            })
+
+        return {
+            "status": "success",
+            "num_clusters": len(clusters),
+            "datastore_clusters": clusters,
+        }
+
+    @mcp.tool()
+    @handle_tool_errors
+    @require_confirm(danger_level="medium")
+    def configure_sioc(
+        datastore_name: str,
+        enabled: bool = True,
+        congestion_threshold_ms: int = 30,
+    ) -> dict[str, Any]:
+        """Configure Storage I/O Control (SIOC) on a datastore.
+
+        Args:
+            datastore_name: Name of the datastore.
+            enabled: Enable or disable SIOC (default True).
+            congestion_threshold_ms: I/O latency congestion threshold in milliseconds (default 30).
+        """
+        logger.info(
+            "configure_sioc",
+            datastore_name=datastore_name,
+            enabled=enabled,
+            congestion_threshold_ms=congestion_threshold_ms,
+        )
+
+        if congestion_threshold_ms < 5 or congestion_threshold_ms > 100:
+            return {"status": "error", "error": "congestion_threshold_ms must be between 5 and 100"}
+
+        ds_items = collect_properties(client, vim.Datastore, ["name"])
+        ds_obj = None
+        for item in ds_items:
+            if item.get("name") == datastore_name:
+                ds_obj = item["_obj"]
+                break
+        if ds_obj is None:
+            return {"status": "error", "error": f"Datastore '{datastore_name}' not found"}
+
+        iorm_spec = vim.StorageResourceManager.IORMConfigSpec(
+            enabled=enabled,
+            congestionThreshold=congestion_threshold_ms,
+        )
+
+        storage_rm = client.content.storageResourceManager
+        task = storage_rm.ConfigureDatastoreIORM_Task(
+            datastore=ds_obj,
+            spec=iorm_spec,
+        )
+        result = wait_for_task(task)
+
+        if result["status"] != "success":
+            return {"status": "error", "error": result.get("message", "Failed to configure SIOC")}
+
+        return {
+            "status": "success",
+            "operation": "configure_sioc",
+            "datastore_name": datastore_name,
+            "enabled": enabled,
+            "congestion_threshold_ms": congestion_threshold_ms,
+        }

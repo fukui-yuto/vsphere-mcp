@@ -272,18 +272,30 @@ def register_vm_device_tools(mcp: Any, client: VSphereClient) -> None:
         vm_name: str,
         boot_delay_ms: int | None = None,
         enter_bios_setup: bool | None = None,
+        boot_retry_enabled: bool | None = None,
+        boot_retry_delay_ms: int | None = None,
+        efi_secure_boot: bool | None = None,
     ) -> dict[str, Any]:
-        """Set VM boot options such as boot delay and BIOS setup entry."""
+        """Set VM boot options such as boot delay, BIOS setup entry, retry, and EFI secure boot.
+
+        Args:
+            vm_name: Name of the VM.
+            boot_delay_ms: Delay in ms before boot (e.g. 10000 for 10s). None to leave unchanged.
+            enter_bios_setup: If True, VM enters BIOS/EFI setup on next boot.
+            boot_retry_enabled: Enable automatic boot retry after failure.
+            boot_retry_delay_ms: Delay in ms before boot retry (default 10000).
+            efi_secure_boot: Enable/disable EFI Secure Boot (VM must use EFI firmware).
+        """
         logger.info(
             "set_vm_boot_options",
             vm_name=vm_name,
             boot_delay_ms=boot_delay_ms,
             enter_bios_setup=enter_bios_setup,
         )
-        if boot_delay_ms is None and enter_bios_setup is None:
+        if all(v is None for v in (boot_delay_ms, enter_bios_setup, boot_retry_enabled, boot_retry_delay_ms, efi_secure_boot)):
             return {
                 "status": "error",
-                "error": "At least one of boot_delay_ms or enter_bios_setup must be specified",
+                "error": "At least one boot option parameter must be specified",
             }
 
         found = find_vm_with_props(client, vm_name)
@@ -295,16 +307,18 @@ def register_vm_device_tools(mcp: Any, client: VSphereClient) -> None:
             boot_options.bootDelay = boot_delay_ms
         if enter_bios_setup is not None:
             boot_options.enterBIOSSetup = enter_bios_setup
+        if boot_retry_enabled is not None:
+            boot_options.bootRetryEnabled = boot_retry_enabled
+        if boot_retry_delay_ms is not None:
+            boot_options.bootRetryDelay = boot_retry_delay_ms
+        if efi_secure_boot is not None:
+            boot_options.efiSecureBootEnabled = efi_secure_boot
 
         config_spec = vim.vm.ConfigSpec(bootOptions=boot_options)
         task = found["_obj"].Reconfigure(spec=config_spec)
         result = wait_for_task(task)
         result["vm_name"] = vm_name
         result["operation"] = "set_vm_boot_options"
-        if boot_delay_ms is not None:
-            result["boot_delay_ms"] = boot_delay_ms
-        if enter_bios_setup is not None:
-            result["enter_bios_setup"] = enter_bios_setup
         return result
 
     @mcp.tool()
@@ -822,4 +836,92 @@ def register_vm_device_tools(mcp: Any, client: VSphereClient) -> None:
         result["disk_label"] = disk_label
         result["disk_mode"] = disk_mode
         result["operation"] = "change_vm_disk_mode"
+        return result
+
+    @mcp.tool()
+    @handle_tool_errors
+    @require_confirm(danger_level="high")
+    def add_vtpm(vm_name: str) -> dict[str, Any]:
+        """Add a Virtual Trusted Platform Module (vTPM) device to a VM.
+
+        The VM must use EFI firmware and must be powered off.
+
+        Args:
+            vm_name: Name of the VM.
+        """
+        logger.info("add_vtpm", vm_name=vm_name)
+        found = find_vm_with_props(client, vm_name)
+        if found is None:
+            return {"status": "error", "error": f"VM '{vm_name}' not found"}
+
+        power_state = found.get("runtime.powerState")
+        if str(power_state) != "poweredOff":
+            return {"status": "error", "error": f"VM '{vm_name}' must be powered off before adding a vTPM"}
+
+        tpm_device = vim.vm.device.VirtualTPM()
+        tpm_spec = vim.vm.device.VirtualDeviceSpec(
+            operation=vim.vm.device.VirtualDeviceSpec.Operation.add,
+            device=tpm_device,
+        )
+        config_spec = vim.vm.ConfigSpec(deviceChange=[tpm_spec])
+        task = found["_obj"].Reconfigure(spec=config_spec)
+        result = wait_for_task(task)
+        result["vm_name"] = vm_name
+        result["operation"] = "add_vtpm"
+        return result
+
+    @mcp.tool()
+    @handle_tool_errors
+    @require_confirm(danger_level="medium")
+    def set_vm_secure_boot(vm_name: str, enabled: bool) -> dict[str, Any]:
+        """Enable or disable EFI Secure Boot for a VM.
+
+        The VM firmware must be set to EFI. The VM should be powered off.
+
+        Args:
+            vm_name: Name of the VM.
+            enabled: True to enable Secure Boot, False to disable.
+        """
+        logger.info("set_vm_secure_boot", vm_name=vm_name, enabled=enabled)
+        found = find_vm_with_props(client, vm_name)
+        if found is None:
+            return {"status": "error", "error": f"VM '{vm_name}' not found"}
+
+        boot_options = vim.vm.BootOptions(efiSecureBootEnabled=enabled)
+        config_spec = vim.vm.ConfigSpec(firmware="efi", bootOptions=boot_options)
+        task = found["_obj"].Reconfigure(spec=config_spec)
+        result = wait_for_task(task)
+        result["vm_name"] = vm_name
+        result["enabled"] = enabled
+        result["operation"] = "set_vm_secure_boot"
+        return result
+
+    @mcp.tool()
+    @handle_tool_errors
+    @require_confirm(danger_level="medium")
+    def configure_vm_vbs(vm_name: str, enabled: bool) -> dict[str, Any]:
+        """Enable or disable Virtualization Based Security (VBS) for a VM.
+
+        VBS requires EFI firmware, Secure Boot, and compatible hardware. The VM must be powered off.
+
+        Args:
+            vm_name: Name of the VM.
+            enabled: True to enable VBS, False to disable.
+        """
+        logger.info("configure_vm_vbs", vm_name=vm_name, enabled=enabled)
+        found = find_vm_with_props(client, vm_name)
+        if found is None:
+            return {"status": "error", "error": f"VM '{vm_name}' not found"}
+
+        power_state = found.get("runtime.powerState")
+        if str(power_state) != "poweredOff":
+            return {"status": "error", "error": f"VM '{vm_name}' must be powered off before configuring VBS"}
+
+        flags = vim.vm.FlagInfo(vbsEnabled=enabled)
+        config_spec = vim.vm.ConfigSpec(flags=flags)
+        task = found["_obj"].Reconfigure(spec=config_spec)
+        result = wait_for_task(task)
+        result["vm_name"] = vm_name
+        result["enabled"] = enabled
+        result["operation"] = "configure_vm_vbs"
         return result

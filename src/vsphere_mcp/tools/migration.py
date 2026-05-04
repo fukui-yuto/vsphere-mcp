@@ -22,14 +22,33 @@ def register_migration_tools(mcp: Any, client: VSphereClient) -> None:
     @mcp.tool()
     @handle_tool_errors
     @require_confirm(danger_level="high")
-    def migrate_vm(vm_name: str, target_host: str) -> dict[str, Any]:
+    def migrate_vm(
+        vm_name: str,
+        target_host: str,
+        priority: str = "defaultPriority",
+        target_datastore: str | None = None,
+    ) -> dict[str, Any]:
         """Migrate a virtual machine to a different ESXi host.
 
         Supports both hot (vMotion) and cold migration. The VM can be powered
         on or off. For cross-cluster migration, consider using ``relocate_vm``
         with the ``target_resource_pool`` parameter.
+
+        Args:
+            vm_name: Name of the VM to migrate.
+            target_host: Name of the target ESXi host.
+            priority: Migration priority: 'defaultPriority', 'highPriority', or 'lowPriority'.
+            target_datastore: Optional target datastore for combined compute+storage migration.
         """
-        logger.info("migrate_vm", vm_name=vm_name, target_host=target_host)
+        logger.info("migrate_vm", vm_name=vm_name, target_host=target_host, priority=priority)
+        priority_map = {
+            "defaultPriority": vim.VirtualMachine.MovePriority.defaultPriority,
+            "highPriority": vim.VirtualMachine.MovePriority.highPriority,
+            "lowPriority": vim.VirtualMachine.MovePriority.lowPriority,
+        }
+        if priority not in priority_map:
+            return {"status": "error", "error": f"priority must be one of: {', '.join(priority_map.keys())}"}
+
         found = find_vm_with_props(client, vm_name)
         if found is None:
             return {"status": "error", "error": f"VM '{vm_name}' not found"}
@@ -37,7 +56,15 @@ def register_migration_tools(mcp: Any, client: VSphereClient) -> None:
         if host is None:
             return {"status": "error", "error": f"Host '{target_host}' not found"}
         relocate_spec = vim.vm.RelocateSpec(host=host)
-        task = found["_obj"].Relocate(spec=relocate_spec)
+
+        if target_datastore is not None:
+            ds_items = collect_properties(client, vim.Datastore, ["name"])
+            ds_obj = next((d["_obj"] for d in ds_items if d.get("name") == target_datastore), None)
+            if ds_obj is None:
+                return {"status": "error", "error": f"Datastore '{target_datastore}' not found"}
+            relocate_spec.datastore = ds_obj
+
+        task = found["_obj"].Relocate(spec=relocate_spec, priority=priority_map[priority])
         result = wait_for_task(task)
         result["vm_name"] = vm_name
         result["target_host"] = target_host

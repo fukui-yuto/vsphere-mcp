@@ -195,3 +195,22 @@ def register_snapshot_tools(mcp: Any, client: VSphereClient) -> None:
         result["vm_name"] = vm_name
         result["operation"] = "revert_to_current_snapshot"
         return result
+
+    @mcp.tool()
+    @handle_tool_errors
+    @require_confirm(danger_level="high")
+    def consolidate_vm_disks(vm_name: str) -> dict[str, Any]:
+        """Consolidate redundant redo log files for a VM's disks.
+
+        Args:
+            vm_name: Name of the VM whose disks should be consolidated.
+        """
+        logger.info("consolidate_vm_disks", vm_name=vm_name)
+        found = find_vm_with_props(client, vm_name)
+        if found is None:
+            return {"status": "error", "error": f"VM '{vm_name}' not found"}
+        task = found["_obj"].ConsolidateVMDisks_Task()
+        result = wait_for_task(task)
+        result["vm_name"] = vm_name
+        result["operation"] = "consolidate_vm_disks"
+        return result

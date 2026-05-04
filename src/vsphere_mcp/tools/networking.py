@@ -670,3 +670,321 @@ def register_networking_tools(mcp: Any, client: VSphereClient) -> None:
             "max_mtu": max_mtu,
             "new_name": new_name,
         }
+
+    @mcp.tool()
+    @handle_tool_errors
+    @require_confirm(danger_level="high")
+    def add_host_to_dvswitch(
+        dvswitch_name: str,
+        host_name: str,
+        uplink_pnic_names: list[str],
+    ) -> dict[str, Any]:
+        """Add an ESXi host to a Distributed Virtual Switch.
+
+        Args:
+            dvswitch_name: Name of the DVSwitch to add the host to.
+            host_name: Name of the ESXi host to add.
+            uplink_pnic_names: List of physical NIC device names to use as uplinks (e.g. ["vmnic0", "vmnic1"]).
+        """
+        logger.info(
+            "add_host_to_dvswitch",
+            dvswitch_name=dvswitch_name,
+            host_name=host_name,
+            uplink_pnic_names=uplink_pnic_names,
+        )
+
+        dvs_items = collect_properties(client, vim.DistributedVirtualSwitch, ["name", "config"])
+        dvs_obj = None
+        dvs_config = None
+        for item in dvs_items:
+            if item.get("name") == dvswitch_name:
+                dvs_obj = item["_obj"]
+                dvs_config = item.get("config")
+                break
+        if dvs_obj is None:
+            return {"status": "error", "error": f"DVSwitch '{dvswitch_name}' not found"}
+
+        host_obj = find_host_by_name(client, host_name)
+        if host_obj is None:
+            return {"status": "error", "error": f"Host '{host_name}' not found"}
+
+        pnic_specs = [vim.dvs.HostMember.PnicSpec(pnicDevice=p) for p in uplink_pnic_names]
+        backing = vim.dvs.HostMember.PnicBacking(pnicSpec=pnic_specs)
+        member_spec = vim.dvs.HostMember.ConfigSpec(
+            host=host_obj,
+            operation="add",
+            backing=backing,
+        )
+
+        config_spec = vim.dvs.VmwareDistributedVirtualSwitch.ConfigSpec(
+            configVersion=dvs_config.configVersion if dvs_config else None,
+            host=[member_spec],
+        )
+
+        task = dvs_obj.ReconfigureDvs_Task(spec=config_spec)
+        result = wait_for_task(task)
+
+        if result["status"] != "success":
+            return {"status": "error", "error": result.get("message", "Failed to add host to DVSwitch")}
+
+        return {
+            "status": "success",
+            "operation": "add_host_to_dvswitch",
+            "dvswitch_name": dvswitch_name,
+            "host_name": host_name,
+            "uplink_pnic_names": uplink_pnic_names,
+        }
+
+    @mcp.tool()
+    @handle_tool_errors
+    @require_confirm(danger_level="high")
+    def remove_host_from_dvswitch(
+        dvswitch_name: str,
+        host_name: str,
+    ) -> dict[str, Any]:
+        """Remove an ESXi host from a Distributed Virtual Switch.
+
+        Args:
+            dvswitch_name: Name of the DVSwitch to remove the host from.
+            host_name: Name of the ESXi host to remove.
+        """
+        logger.info(
+            "remove_host_from_dvswitch",
+            dvswitch_name=dvswitch_name,
+            host_name=host_name,
+        )
+
+        dvs_items = collect_properties(client, vim.DistributedVirtualSwitch, ["name", "config"])
+        dvs_obj = None
+        dvs_config = None
+        for item in dvs_items:
+            if item.get("name") == dvswitch_name:
+                dvs_obj = item["_obj"]
+                dvs_config = item.get("config")
+                break
+        if dvs_obj is None:
+            return {"status": "error", "error": f"DVSwitch '{dvswitch_name}' not found"}
+
+        host_obj = find_host_by_name(client, host_name)
+        if host_obj is None:
+            return {"status": "error", "error": f"Host '{host_name}' not found"}
+
+        member_spec = vim.dvs.HostMember.ConfigSpec(
+            host=host_obj,
+            operation="remove",
+        )
+
+        config_spec = vim.dvs.VmwareDistributedVirtualSwitch.ConfigSpec(
+            configVersion=dvs_config.configVersion if dvs_config else None,
+            host=[member_spec],
+        )
+
+        task = dvs_obj.ReconfigureDvs_Task(spec=config_spec)
+        result = wait_for_task(task)
+
+        if result["status"] != "success":
+            return {"status": "error", "error": result.get("message", "Failed to remove host from DVSwitch")}
+
+        return {
+            "status": "success",
+            "operation": "remove_host_from_dvswitch",
+            "dvswitch_name": dvswitch_name,
+            "host_name": host_name,
+        }
+
+    @mcp.tool()
+    @handle_tool_errors
+    def list_dvswitch_ports(
+        dvswitch_name: str,
+        connected_only: bool = False,
+    ) -> dict[str, Any]:
+        """List ports on a Distributed Virtual Switch.
+
+        Args:
+            dvswitch_name: Name of the DVSwitch.
+            connected_only: If True, return only connected ports. Default False returns all ports.
+        """
+        logger.info("list_dvswitch_ports", dvswitch_name=dvswitch_name, connected_only=connected_only)
+
+        dvs_items = collect_properties(client, vim.DistributedVirtualSwitch, ["name"])
+        dvs_obj = None
+        for item in dvs_items:
+            if item.get("name") == dvswitch_name:
+                dvs_obj = item["_obj"]
+                break
+        if dvs_obj is None:
+            return {"status": "error", "error": f"DVSwitch '{dvswitch_name}' not found"}
+
+        criteria = vim.dvs.PortCriteria(connected=True) if connected_only else vim.dvs.PortCriteria()
+        ports = dvs_obj.FetchDVPorts(criteria=criteria)
+
+        port_list = []
+        for port in ports or []:
+            connected_entity = None
+            state = None
+            if port.connectee:
+                try:
+                    connected_entity = getattr(port.connectee, "connectedEntity", None)
+                    if connected_entity is not None:
+                        connected_entity = getattr(connected_entity, "name", str(connected_entity))
+                except Exception:
+                    connected_entity = str(port.connectee)
+            if port.state:
+                state = getattr(port.state, "runtimeInfo", None)
+                if state is not None:
+                    link_up = getattr(state, "linkUp", None)
+                    state = {"linkUp": link_up}
+            port_list.append({
+                "key": port.key,
+                "connected_entity": connected_entity,
+                "state": state,
+            })
+
+        return {
+            "status": "success",
+            "dvswitch_name": dvswitch_name,
+            "connected_only": connected_only,
+            "num_ports": len(port_list),
+            "ports": port_list,
+        }
+
+    @mcp.tool()
+    @handle_tool_errors
+    @require_confirm(danger_level="high")
+    def configure_dvs_pvlan(
+        dvswitch_name: str,
+        primary_vlan_id: int,
+        secondary_vlan_id: int,
+        pvlan_type: str,
+    ) -> dict[str, Any]:
+        """Configure Private VLAN (PVLAN) on a Distributed Virtual Switch.
+
+        Args:
+            dvswitch_name: Name of the DVSwitch.
+            primary_vlan_id: Primary VLAN ID (1-4094).
+            secondary_vlan_id: Secondary VLAN ID (1-4094).
+            pvlan_type: PVLAN port type: "promiscuous", "isolated", or "community".
+        """
+        logger.info(
+            "configure_dvs_pvlan",
+            dvswitch_name=dvswitch_name,
+            primary_vlan_id=primary_vlan_id,
+            secondary_vlan_id=secondary_vlan_id,
+            pvlan_type=pvlan_type,
+        )
+
+        valid_pvlan_types = ("promiscuous", "isolated", "community")
+        if pvlan_type not in valid_pvlan_types:
+            return {"status": "error", "error": f"pvlan_type must be one of: {', '.join(valid_pvlan_types)}"}
+        if not (1 <= primary_vlan_id <= 4094):
+            return {"status": "error", "error": "primary_vlan_id must be between 1 and 4094"}
+        if not (1 <= secondary_vlan_id <= 4094):
+            return {"status": "error", "error": "secondary_vlan_id must be between 1 and 4094"}
+
+        dvs_items = collect_properties(client, vim.DistributedVirtualSwitch, ["name", "config"])
+        dvs_obj = None
+        dvs_config = None
+        for item in dvs_items:
+            if item.get("name") == dvswitch_name:
+                dvs_obj = item["_obj"]
+                dvs_config = item.get("config")
+                break
+        if dvs_obj is None:
+            return {"status": "error", "error": f"DVSwitch '{dvswitch_name}' not found"}
+
+        pvlan_map_entry = vim.dvs.VmwareDistributedVirtualSwitch.PvlanMapEntry(
+            primaryVlanId=primary_vlan_id,
+            secondaryVlanId=secondary_vlan_id,
+            pvlanType=pvlan_type,
+        )
+        pvlan_config_spec = vim.dvs.VmwareDistributedVirtualSwitch.PvlanConfigSpec(
+            pvlanEntry=pvlan_map_entry,
+            operation="add",
+        )
+
+        config_spec = vim.dvs.VmwareDistributedVirtualSwitch.ConfigSpec(
+            configVersion=dvs_config.configVersion if dvs_config else None,
+            pvlanConfigSpec=[pvlan_config_spec],
+        )
+
+        task = dvs_obj.ReconfigureDvs_Task(spec=config_spec)
+        result = wait_for_task(task)
+
+        if result["status"] != "success":
+            return {"status": "error", "error": result.get("message", "Failed to configure PVLAN on DVSwitch")}
+
+        return {
+            "status": "success",
+            "operation": "configure_dvs_pvlan",
+            "dvswitch_name": dvswitch_name,
+            "primary_vlan_id": primary_vlan_id,
+            "secondary_vlan_id": secondary_vlan_id,
+            "pvlan_type": pvlan_type,
+        }
+
+    @mcp.tool()
+    @handle_tool_errors
+    @require_confirm(danger_level="medium")
+    def configure_host_vswitch_nic_teaming(
+        host_name: str,
+        vswitch_name: str,
+        active_nics: list[str],
+        standby_nics: list[str] | None = None,
+        policy: str = "loadbalance_srcid",
+    ) -> dict[str, Any]:
+        """Configure NIC teaming policy on a standard vSwitch on an ESXi host.
+
+        Args:
+            host_name: Name of the ESXi host.
+            vswitch_name: Name of the standard vSwitch to configure.
+            active_nics: List of NIC device names to set as active (e.g. ["vmnic0", "vmnic1"]).
+            standby_nics: List of NIC device names to set as standby, or None for no standby NICs.
+            policy: NIC teaming policy: "loadbalance_srcid", "loadbalance_ip", "loadbalance_srcmac",
+                "failover_explicit" (default "loadbalance_srcid").
+        """
+        logger.info(
+            "configure_host_vswitch_nic_teaming",
+            host_name=host_name,
+            vswitch_name=vswitch_name,
+            active_nics=active_nics,
+            standby_nics=standby_nics,
+            policy=policy,
+        )
+
+        valid_policies = ("loadbalance_srcid", "loadbalance_ip", "loadbalance_srcmac", "failover_explicit")
+        if policy not in valid_policies:
+            return {"status": "error", "error": f"policy must be one of: {', '.join(valid_policies)}"}
+
+        host_obj = find_host_by_name(client, host_name)
+        if host_obj is None:
+            return {"status": "error", "error": f"Host '{host_name}' not found"}
+
+        cm = _get_config_manager(host_obj)
+        if cm is None:
+            return {"status": "error", "error": "configManager not available on this host"}
+        net_system = cm.networkSystem
+        if net_system is None:
+            return {"status": "error", "error": "networkSystem not available"}
+
+        nic_order = vim.host.NicOrderPolicy(
+            activeNic=active_nics,
+            standbyNic=standby_nics or [],
+        )
+        nic_teaming = vim.host.NetworkPolicy.NicTeamingPolicy(
+            policy=policy,
+            nicOrder=nic_order,
+        )
+        network_policy = vim.host.NetworkPolicy(nicTeaming=nic_teaming)
+
+        vswitch_spec = vim.host.VirtualSwitch.Specification(policy=network_policy)
+        net_system.UpdateVirtualSwitch(vswitchName=vswitch_name, spec=vswitch_spec)
+
+        return {
+            "status": "success",
+            "operation": "configure_host_vswitch_nic_teaming",
+            "host_name": host_name,
+            "vswitch_name": vswitch_name,
+            "active_nics": active_nics,
+            "standby_nics": standby_nics,
+            "policy": policy,
+        }

@@ -6,8 +6,12 @@ from vsphere_mcp.client import VSphereClient
 from vsphere_mcp.config import VSphereSettings
 from vsphere_mcp.logging import setup_logging
 from vsphere_mcp.tools.advanced_settings import register_advanced_settings_tools
+from vsphere_mcp.tools.alarm import register_alarm_tools
 from vsphere_mcp.tools.batch import register_batch_tools
 from vsphere_mcp.tools.cluster_config import register_cluster_config_tools
+from vsphere_mcp.tools.content_library import register_content_library_tools
+from vsphere_mcp.tools.customization import register_customization_tools
+from vsphere_mcp.tools.datacenter import register_datacenter_tools
 from vsphere_mcp.tools.datastore_browser import register_datastore_browser_tools
 from vsphere_mcp.tools.events import register_event_tools
 from vsphere_mcp.tools.folders import register_folder_tools
@@ -26,6 +30,12 @@ from vsphere_mcp.tools.storage import register_storage_tools
 from vsphere_mcp.tools.tags import register_tag_tools
 from vsphere_mcp.tools.vcenter_admin import register_vcenter_admin_tools
 from vsphere_mcp.tools.vm_devices import register_vm_device_tools
+from vsphere_mcp.tools.vsphere_tags import register_vsphere_tag_tools
+from vsphere_mcp.tools.vapp import register_vapp_tools
+from vsphere_mcp.tools.scheduled_tasks import register_scheduled_task_tools
+from vsphere_mcp.tools.host_profile import register_host_profile_tools
+from vsphere_mcp.tools.license import register_license_tools
+from vsphere_mcp.tools.fault_tolerance import register_ft_tools
 
 setup_logging()
 
@@ -58,6 +68,16 @@ register_vm_device_tools(mcp, client)
 register_folder_tools(mcp, client)
 register_datastore_browser_tools(mcp, client)
 register_networking_tools(mcp, client)
+register_datacenter_tools(mcp, client)
+register_customization_tools(mcp, client)
+register_alarm_tools(mcp, client)
+register_vsphere_tag_tools(mcp, client)
+register_content_library_tools(mcp, client)
+register_vapp_tools(mcp, client)
+register_scheduled_task_tools(mcp, client)
+register_host_profile_tools(mcp, client)
+register_license_tools(mcp, client)
+register_ft_tools(mcp, client)
 
 
 def main() -> None:
