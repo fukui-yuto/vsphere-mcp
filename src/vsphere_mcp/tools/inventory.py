@@ -129,6 +129,91 @@ def _format_host(data: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+DATACENTER_PROPS = [
+    "name",
+]
+
+CLUSTER_PROPS = [
+    "name",
+    "summary.totalCpu",
+    "summary.totalMemory",
+    "summary.numCpuCores",
+    "summary.numCpuThreads",
+    "summary.numHosts",
+    "summary.numEffectiveHosts",
+    "host",
+]
+
+DATASTORE_PROPS = [
+    "name",
+    "summary.type",
+    "summary.capacity",
+    "summary.freeSpace",
+    "summary.accessible",
+    "summary.url",
+]
+
+NETWORK_PROPS = [
+    "name",
+]
+
+SNAPSHOT_PROPS = [
+    "name",
+    "snapshot",
+]
+
+
+def _format_datacenter(data: dict[str, Any]) -> dict[str, Any]:
+    return {"name": data.get("name")}
+
+
+def _format_cluster(data: dict[str, Any]) -> dict[str, Any]:
+    total_mem = data.get("summary.totalMemory")
+    hosts = data.get("host", [])
+    return {
+        "name": data.get("name"),
+        "total_cpu_mhz": data.get("summary.totalCpu"),
+        "total_memory_gb": round(total_mem / (1024**3), 2) if total_mem else 0,
+        "num_cpu_cores": data.get("summary.numCpuCores"),
+        "num_cpu_threads": data.get("summary.numCpuThreads"),
+        "num_hosts": data.get("summary.numHosts"),
+        "num_effective_hosts": data.get("summary.numEffectiveHosts"),
+        "num_hosts_actual": len(hosts) if hosts else 0,
+    }
+
+
+def _format_datastore(data: dict[str, Any]) -> dict[str, Any]:
+    capacity = data.get("summary.capacity")
+    free = data.get("summary.freeSpace")
+    return {
+        "name": data.get("name"),
+        "type": data.get("summary.type"),
+        "capacity_gb": round(capacity / (1024**3), 2) if capacity else 0,
+        "free_gb": round(free / (1024**3), 2) if free else 0,
+        "used_gb": round((capacity - free) / (1024**3), 2) if capacity and free else 0,
+        "accessible": data.get("summary.accessible"),
+        "url": data.get("summary.url"),
+    }
+
+
+def _format_network(data: dict[str, Any]) -> dict[str, Any]:
+    return {"name": data.get("name")}
+
+
+def _walk_snapshots(snapshot_tree: list[Any], result: list[dict[str, Any]], depth: int = 0) -> None:
+    for snap in snapshot_tree:
+        result.append({
+            "name": snap.name,
+            "description": snap.description,
+            "create_time": str(snap.createTime),
+            "state": str(snap.state),
+            "quiesced": snap.quiesced,
+            "depth": depth,
+        })
+        if snap.childSnapshotList:
+            _walk_snapshots(snap.childSnapshotList, result, depth + 1)
+
+
 def register_inventory_tools(mcp: Any, client: VSphereClient) -> None:
     @mcp.tool()
     def list_vms(
@@ -143,8 +228,9 @@ def register_inventory_tools(mcp: Any, client: VSphereClient) -> None:
             host_ref = item.get("runtime.host")
             if host and host_ref and host_ref.name != host:
                 continue
-            if cluster and host_ref and hasattr(host_ref, "parent") and host_ref.parent and host_ref.parent.name != cluster:
-                continue
+            if cluster and host_ref and hasattr(host_ref, "parent"):
+                if host_ref.parent and host_ref.parent.name != cluster:
+                    continue
             vms.append(_format_vm_list(item))
         return vms
 
@@ -170,3 +256,97 @@ def register_inventory_tools(mcp: Any, client: VSphereClient) -> None:
                 continue
             hosts.append(_format_host(item))
         return hosts
+
+    @mcp.tool()
+    def get_host_info(host_name: str) -> dict[str, Any]:
+        """Get detailed information for a specific ESXi host by name."""
+        logger.info("get_host_info", host_name=host_name)
+        items = collect_properties(client, vim.HostSystem, HOST_PROPS)
+        for item in items:
+            if item.get("name") == host_name:
+                return _format_host(item)
+        return {"error": f"Host '{host_name}' not found"}
+
+    @mcp.tool()
+    def list_datacenters() -> list[dict[str, Any]]:
+        """List all datacenters in vCenter."""
+        logger.info("list_datacenters")
+        items = collect_properties(client, vim.Datacenter, DATACENTER_PROPS)
+        return [_format_datacenter(item) for item in items]
+
+    @mcp.tool()
+    def list_clusters(datacenter: str | None = None) -> list[dict[str, Any]]:
+        """List all clusters. Optionally filter by datacenter name."""
+        logger.info("list_clusters", datacenter=datacenter)
+        items = collect_properties(client, vim.ClusterComputeResource, CLUSTER_PROPS)
+        if datacenter:
+            filtered = []
+            for item in items:
+                obj = item["_obj"]
+                parent = obj.parent
+                while parent:
+                    if isinstance(parent, vim.Datacenter) and parent.name == datacenter:
+                        filtered.append(item)
+                        break
+                    parent = parent.parent
+            items = filtered
+        return [_format_cluster(item) for item in items]
+
+    @mcp.tool()
+    def list_datastores() -> list[dict[str, Any]]:
+        """List all datastores."""
+        logger.info("list_datastores")
+        items = collect_properties(client, vim.Datastore, DATASTORE_PROPS)
+        return [_format_datastore(item) for item in items]
+
+    @mcp.tool()
+    def list_networks() -> list[dict[str, Any]]:
+        """List all networks (port groups)."""
+        logger.info("list_networks")
+        items = collect_properties(client, vim.Network, NETWORK_PROPS)
+        return [_format_network(item) for item in items]
+
+    @mcp.tool()
+    def list_snapshots(vm_name: str) -> dict[str, Any]:
+        """List all snapshots for a virtual machine."""
+        logger.info("list_snapshots", vm_name=vm_name)
+        items = collect_properties(client, vim.VirtualMachine, SNAPSHOT_PROPS)
+        for item in items:
+            if item.get("name") == vm_name:
+                snap_info = item.get("snapshot")
+                if not snap_info or not hasattr(snap_info, "rootSnapshotList"):
+                    return {"vm_name": vm_name, "snapshots": []}
+                result: list[dict[str, Any]] = []
+                _walk_snapshots(snap_info.rootSnapshotList, result)
+                return {"vm_name": vm_name, "snapshots": result}
+        return {"error": f"VM '{vm_name}' not found"}
+
+    @mcp.tool()
+    def get_cluster_health(cluster_name: str) -> dict[str, Any]:
+        """Get health summary for a cluster including CPU/memory utilization."""
+        logger.info("get_cluster_health", cluster_name=cluster_name)
+        items = collect_properties(client, vim.ClusterComputeResource, CLUSTER_PROPS)
+        for item in items:
+            if item.get("name") == cluster_name:
+                cluster_data = _format_cluster(item)
+                host_items = collect_properties(client, vim.HostSystem, HOST_PROPS)
+                cluster_hosts = []
+                for h in host_items:
+                    obj = h["_obj"]
+                    if hasattr(obj, "parent") and obj.parent and obj.parent.name == cluster_name:
+                        cluster_hosts.append(_format_host(h))
+                cluster_data["hosts"] = cluster_hosts
+                return cluster_data
+        return {"error": f"Cluster '{cluster_name}' not found"}
+
+    @mcp.tool()
+    def search_vms(query: str) -> list[dict[str, Any]]:
+        """Search virtual machines by name (case-insensitive substring match)."""
+        logger.info("search_vms", query=query)
+        items = collect_properties(client, vim.VirtualMachine, VM_LIST_PROPS)
+        query_lower = query.lower()
+        return [
+            _format_vm_list(item)
+            for item in items
+            if item.get("name") and query_lower in item["name"].lower()
+        ]
