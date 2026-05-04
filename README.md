@@ -72,40 +72,156 @@ uv venv
 uv pip install -e .
 ```
 
-### 3. Claude Code への登録
+### 3. AI ツールへの登録
 
-#### ローカル開発（vcsim）
+#### Claude Code
 
-```bash
-claude mcp add --transport stdio vsphere-mcp \
-  --env VSPHERE_HOST=localhost \
-  --env VSPHERE_PORT=8989 \
-  --env VSPHERE_USER=user \
-  --env VSPHERE_PASSWORD=pass \
-  --env VSPHERE_IGNORE_SSL=true \
-  -- uv run vsphere-mcp
+`.claude/settings.json` または `.mcp.json` に以下を追加します。
+
+**ローカル開発（vcsim）**
+
+```json
+{
+  "mcpServers": {
+    "vsphere-mcp": {
+      "command": "uv",
+      "args": ["run", "vsphere-mcp"],
+      "env": {
+        "VSPHERE_HOST": "localhost",
+        "VSPHERE_PORT": "8989",
+        "VSPHERE_USER": "user",
+        "VSPHERE_PASSWORD": "pass",
+        "VSPHERE_IGNORE_SSL": "true"
+      }
+    }
+  }
+}
 ```
 
-#### 本番 vCenter
+**本番 vCenter**
 
-```bash
-claude mcp add --transport stdio vsphere-mcp \
-  --env VSPHERE_HOST=vcenter.example.com \
-  --env VSPHERE_PORT=443 \
-  --env VSPHERE_USER=administrator@vsphere.local \
-  --env VSPHERE_PASSWORD=your-password \
-  -- uv run vsphere-mcp
+```json
+{
+  "mcpServers": {
+    "vsphere-mcp": {
+      "command": "uv",
+      "args": ["run", "vsphere-mcp"],
+      "env": {
+        "VSPHERE_HOST": "vcenter.example.com",
+        "VSPHERE_PORT": "443",
+        "VSPHERE_USER": "administrator@vsphere.local",
+        "VSPHERE_PASSWORD": "your-password"
+      }
+    }
+  }
+}
 ```
 
-#### パスワードファイル（本番推奨）
+**パスワードファイル（本番推奨）**
 
-```bash
-claude mcp add --transport stdio vsphere-mcp \
-  --env VSPHERE_HOST=vcenter.example.com \
-  --env VSPHERE_PORT=443 \
-  --env VSPHERE_USER=administrator@vsphere.local \
-  --env VSPHERE_PASSWORD_FILE=/run/secrets/vsphere_password \
-  -- uv run vsphere-mcp
+```json
+{
+  "mcpServers": {
+    "vsphere-mcp": {
+      "command": "uv",
+      "args": ["run", "vsphere-mcp"],
+      "env": {
+        "VSPHERE_HOST": "vcenter.example.com",
+        "VSPHERE_PORT": "443",
+        "VSPHERE_USER": "administrator@vsphere.local",
+        "VSPHERE_PASSWORD_FILE": "/run/secrets/vsphere_password"
+      }
+    }
+  }
+}
+```
+
+#### GitHub Copilot（VS Code）
+
+プロジェクトルートに `.vscode/mcp.json` を作成します。
+
+**ローカル開発（vcsim）**
+
+```json
+{
+  "servers": {
+    "vsphere-mcp": {
+      "command": "uv",
+      "args": ["run", "vsphere-mcp"],
+      "env": {
+        "VSPHERE_HOST": "localhost",
+        "VSPHERE_PORT": "8989",
+        "VSPHERE_USER": "user",
+        "VSPHERE_PASSWORD": "pass",
+        "VSPHERE_IGNORE_SSL": "true"
+      }
+    }
+  }
+}
+```
+
+**本番 vCenter**
+
+```json
+{
+  "servers": {
+    "vsphere-mcp": {
+      "command": "uv",
+      "args": ["run", "vsphere-mcp"],
+      "env": {
+        "VSPHERE_HOST": "vcenter.example.com",
+        "VSPHERE_PORT": "443",
+        "VSPHERE_USER": "administrator@vsphere.local",
+        "VSPHERE_PASSWORD": "your-password"
+      }
+    }
+  }
+}
+```
+
+> **ヒント**: VS Code のユーザー設定（`settings.json`）の `mcp.servers` に記述することも可能です。
+
+#### OpenAI Codex CLI
+
+プロジェクトルートに `codex.json` を作成します。
+
+**ローカル開発（vcsim）**
+
+```json
+{
+  "mcpServers": {
+    "vsphere-mcp": {
+      "command": "uv",
+      "args": ["run", "vsphere-mcp"],
+      "env": {
+        "VSPHERE_HOST": "localhost",
+        "VSPHERE_PORT": "8989",
+        "VSPHERE_USER": "user",
+        "VSPHERE_PASSWORD": "pass",
+        "VSPHERE_IGNORE_SSL": "true"
+      }
+    }
+  }
+}
+```
+
+**本番 vCenter**
+
+```json
+{
+  "mcpServers": {
+    "vsphere-mcp": {
+      "command": "uv",
+      "args": ["run", "vsphere-mcp"],
+      "env": {
+        "VSPHERE_HOST": "vcenter.example.com",
+        "VSPHERE_PORT": "443",
+        "VSPHERE_USER": "administrator@vsphere.local",
+        "VSPHERE_PASSWORD": "your-password"
+      }
+    }
+  }
+}
 ```
 
 ### 4. Claude Code から利用
