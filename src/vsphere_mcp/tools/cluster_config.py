@@ -248,10 +248,10 @@ def register_cluster_config_tools(mcp: Any, client: VSphereClient) -> None:
     @require_confirm(danger_level="high")
     def update_resource_pool(
         pool_name: str,
-        cpu_reservation: int = 0,
-        cpu_limit: int = -1,
-        memory_reservation_mb: int = 0,
-        memory_limit_mb: int = -1,
+        cpu_reservation: int | None = None,
+        cpu_limit: int | None = None,
+        memory_reservation_mb: int | None = None,
+        memory_limit_mb: int | None = None,
     ) -> dict[str, Any]:
         """Update an existing resource pool configuration.
 
@@ -273,17 +273,22 @@ def register_cluster_config_tools(mcp: Any, client: VSphereClient) -> None:
         if pool_obj is None:
             return {"status": "error", "error": f"Resource pool '{pool_name}' not found"}
 
+        current_config = pool_obj.config
         cpu_alloc = vim.ResourceAllocationInfo(
-            reservation=cpu_reservation,
-            limit=cpu_limit,
-            expandableReservation=True,
-            shares=vim.SharesInfo(level=vim.SharesInfo.Level.normal),
+            reservation=cpu_reservation if cpu_reservation is not None else current_config.cpuAllocation.reservation,
+            limit=cpu_limit if cpu_limit is not None else current_config.cpuAllocation.limit,
+            expandableReservation=current_config.cpuAllocation.expandableReservation,
+            shares=current_config.cpuAllocation.shares,
         )
         mem_alloc = vim.ResourceAllocationInfo(
-            reservation=memory_reservation_mb,
-            limit=memory_limit_mb,
-            expandableReservation=True,
-            shares=vim.SharesInfo(level=vim.SharesInfo.Level.normal),
+            reservation=(
+                memory_reservation_mb
+                if memory_reservation_mb is not None
+                else current_config.memoryAllocation.reservation
+            ),
+            limit=memory_limit_mb if memory_limit_mb is not None else current_config.memoryAllocation.limit,
+            expandableReservation=current_config.memoryAllocation.expandableReservation,
+            shares=current_config.memoryAllocation.shares,
         )
         config = vim.ResourceConfigSpec(
             cpuAllocation=cpu_alloc,

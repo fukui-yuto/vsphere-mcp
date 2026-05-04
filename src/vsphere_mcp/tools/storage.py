@@ -165,10 +165,7 @@ def register_storage_tools(mcp: Any, client: VSphereClient) -> None:
     @handle_tool_errors
     @require_confirm(danger_level="medium")
     def rescan_host_storage(host_name: str) -> dict[str, Any]:
-        """Rescan all HBAs and VMFS on an ESXi host.
-
-        [MEDIUM RISK] Requires confirm=True to execute.
-        """
+        """Rescan all HBAs and VMFS on an ESXi host to discover new storage."""
         logger.info("rescan_host_storage", host_name=host_name)
         host_obj = find_host_by_name(client, host_name)
         if host_obj is None:

@@ -120,6 +120,8 @@ def register_event_tools(mcp: Any, client: VSphereClient) -> None:
         logger.info("list_performance_counters", group_name=group_name)
         content = client.content
         perf_manager = content.perfManager
+        if not perf_manager:
+            return {"status": "error", "error": "Performance manager not available"}
 
         counters: list[dict[str, Any]] = []
         for counter in perf_manager.perfCounter or []:
@@ -211,7 +213,9 @@ def register_event_tools(mcp: Any, client: VSphereClient) -> None:
             log_key: Log key to browse (default 'hostd').
             max_lines: Maximum number of lines to return (default 100).
         """
-        logger.info("get_host_system_log", host_name=host_name, log_key=log_key)
+        logger.info("get_host_system_log", host_name=host_name, log_key=log_key, max_lines=max_lines)
+        if max_lines <= 0 or max_lines > 1000:
+            return {"status": "error", "error": "max_lines must be between 1 and 1000"}
         content = client.content
         diag_manager = content.diagnosticManager
         if not diag_manager:

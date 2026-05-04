@@ -412,10 +412,7 @@ def register_host_config_tools(mcp: Any, client: VSphereClient) -> None:
     @handle_tool_errors
     @require_confirm(danger_level="high")
     def enable_esxi_ssh(host_name: str) -> dict[str, Any]:
-        """Enable SSH on an ESXi host.
-
-        [HIGH RISK] Requires confirm=True to execute.
-        """
+        """Enable SSH on an ESXi host by starting the TSM-SSH service."""
         logger.info("enable_esxi_ssh", host_name=host_name)
         host_obj = find_host_by_name(client, host_name)
         if host_obj is None:
@@ -438,10 +435,7 @@ def register_host_config_tools(mcp: Any, client: VSphereClient) -> None:
     @handle_tool_errors
     @require_confirm(danger_level="high")
     def disable_esxi_ssh(host_name: str) -> dict[str, Any]:
-        """Disable SSH on an ESXi host.
-
-        [HIGH RISK] Requires confirm=True to execute.
-        """
+        """Disable SSH on an ESXi host by stopping the TSM-SSH service."""
         logger.info("disable_esxi_ssh", host_name=host_name)
         host_obj = find_host_by_name(client, host_name)
         if host_obj is None:
@@ -527,8 +521,6 @@ def register_host_config_tools(mcp: Any, client: VSphereClient) -> None:
         Args:
             host_name: Name of the ESXi host.
             policy_key: The power policy key to set.
-
-        [MEDIUM RISK] Requires confirm=True to execute.
         """
         logger.info("set_host_power_policy", host_name=host_name, policy_key=policy_key)
         host_obj = find_host_by_name(client, host_name)
@@ -556,7 +548,7 @@ def register_host_config_tools(mcp: Any, client: VSphereClient) -> None:
         host_obj = find_host_by_name(client, host_name)
         if host_obj is None:
             return {"status": "error", "error": f"Host '{host_name}' not found"}
-        cm = getattr(host_obj, "configManager", None)
+        cm = _get_config_manager(host_obj)
         if cm is None:
             return {"status": "error", "error": "configManager not available on this host"}
         host_access_manager = cm.hostAccessManager

@@ -194,6 +194,10 @@ def register_lifecycle_tools(mcp: Any, client: VSphereClient) -> None:
             guest_id=guest_id,
             datastore_name=datastore_name,
         )
+        if num_cpus <= 0:
+            return {"status": "error", "error": "num_cpus must be a positive integer"}
+        if memory_mb < 4:
+            return {"status": "error", "error": "memory_mb must be at least 4"}
         from vsphere_mcp.utils.property_collector import collect_properties
 
         # Find datacenter

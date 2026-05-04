@@ -184,6 +184,8 @@ def register_networking_tools(mcp: Any, client: VSphereClient) -> None:
             vswitch_name=vswitch_name,
             vlan_id=vlan_id,
         )
+        if vlan_id < 0 or vlan_id > 4094:
+            return {"status": "error", "error": "vlan_id must be between 0 and 4094"}
 
         host_obj = find_host_by_name(client, host_name)
         if host_obj is None:
