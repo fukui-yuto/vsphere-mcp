@@ -8,7 +8,7 @@ VMware vSphere / vCenter を AI コーディングツール（Claude Code、GitH
 
 > **注意**: 開発・テストはすべて [vcsim](https://github.com/vmware/govmomi/tree/main/vcsim)（vCenter Server Simulator）上で実施しています。商用 vSphere 環境への影響はありません。
 
-## 機能一覧（全 204 ツール）
+## 機能一覧（全 301 ツール）
 
 > 全ツールの詳細は [docs/TOOLS.md](docs/TOOLS.md) を参照してください。
 
@@ -16,30 +16,40 @@ VMware vSphere / vCenter を AI コーディングツール（Claude Code、GitH
 
 | カテゴリ | モジュール | 読み取り | 操作 | 合計 |
 |---|---|---|---|---|
-| インベントリ | `inventory.py` | 16 | - | 16 |
+| インベントリ | `inventory.py` | 18 | - | 18 |
 | 電源操作 | `power.py` | - | 6 | 6 |
-| スナップショット | `snapshot.py` | - | 6 | 6 |
+| スナップショット | `snapshot.py` | - | 7 | 7 |
 | マイグレーション | `migration.py` | - | 3 | 3 |
-| ライフサイクル | `lifecycle.py` | 1 | 7 | 8 |
-| リソース | `resources.py` | - | 4 | 4 |
-| VM デバイス | `vm_devices.py` | 7 | 16 | 23 |
-| ホスト管理 | `host.py` | - | 9 | 9 |
+| ライフサイクル | `lifecycle.py` | 2 | 11 | 13 |
+| リソース | `resources.py` | - | 8 | 8 |
+| VM デバイス | `vm_devices.py` | 7 | 19 | 26 |
+| ホスト管理 | `host.py` | - | 11 | 11 |
 | ホスト設定 | `host_config.py` | 15 | 18 | 33 |
-| ネットワ���ク | `networking.py` | 2 | 8 | 10 |
-| パフォーマンス | `performance.py` | 2 | - | 2 |
+| ネットワーク | `networking.py` | 3 | 12 | 15 |
+| パフォーマンス | `performance.py` | 7 | - | 7 |
 | イベント・監視 | `events.py` | 8 | - | 8 |
-| ストレージ | `storage.py` | 6 | 7 | 13 |
-| バッチ操作 | `batch.py` | 1 | 2 | 3 |
-| ゲスト操作 | `guest.py` | 3 | 5 | 8 |
-| タグ・属性 | `tags.py` | 3 | 3 | 6 |
+| ストレージ | `storage.py` | 8 | 13 | 21 |
+| バッチ操作 | `batch.py` | 1 | 4 | 5 |
+| ゲスト操作 | `guest.py` | 5 | 9 | 14 |
+| タグ・属性 | `tags.py` | 3 | 4 | 7 |
 | 詳細設定 | `advanced_settings.py` | 2 | 2 | 4 |
 | vCenter 管理 | `vcenter_admin.py` | 6 | 8 | 14 |
-| クラスタ設定 | `cluster_config.py` | 5 | 12 | 17 |
+| クラスタ設定 | `cluster_config.py` | 7 | 18 | 25 |
 | フォルダ | `folders.py` | 1 | 5 | 6 |
 | DS ブラウザ | `datastore_browser.py` | 1 | 4 | 5 |
-| **合計** | | **79** | **125** | **204** |
+| データセンター | `datacenter.py` | - | 3 | 3 |
+| カスタマイズ | `customization.py` | 2 | 4 | 6 |
+| アラーム | `alarm.py` | - | 4 | 4 |
+| vSphere タグ | `vsphere_tags.py` | 3 | 6 | 9 |
+| コンテンツライブラリ | `content_library.py` | 2 | 5 | 7 |
+| vApp | `vapp.py` | 1 | 3 | 4 |
+| スケジュールタスク | `scheduled_tasks.py` | 1 | 2 | 3 |
+| ホストプロファイル | `host_profile.py` | 2 | - | 2 |
+| ライセンス | `license.py` | 1 | 3 | 4 |
+| フォールトトレランス | `fault_tolerance.py` | 1 | 2 | 3 |
+| **合計** | | **107** | **194** | **301** |
 
-### 操作ツール（125 個・confirm 必須）
+### 操作ツール（194 個・confirm 必須）
 
 すべての操作ツールは `confirm=True` を指定しない限り実行されず、確認プロンプトを返します。
 
@@ -347,27 +357,37 @@ vsphere-mcp/
     py.typed                      # 型情報マーカー
     tools/
       _base.py                    # require_confirm / handle_tool_errors デコレータ
-      inventory.py                # インベントリ情報取得（16 個）
+      inventory.py                # インベントリ情報取得（18 個）
       power.py                    # 電源操作（6 個）
-      snapshot.py                 # スナップショット管理（6 個）
+      snapshot.py                 # スナップショット管理（7 個）
       migration.py                # vMotion / Storage vMotion（3 個）
-      lifecycle.py                # VM ライフサイクル（8 個）
-      resources.py                # リソース変更: CPU/メモリ/ディスク/NIC/CD（4 個）
-      vm_devices.py               # VM デバイス管理（23 個）
-      host.py                     # ホスト管理（9 個）
+      lifecycle.py                # VM ライフサイクル（13 個）
+      resources.py                # リソース変更: CPU/メモリ/ディスク/NIC/CD（8 個）
+      vm_devices.py               # VM デバイス管理（26 個）
+      host.py                     # ホスト管理（11 個）
       host_config.py              # ホスト設定（33 個）
-      networking.py               # ネットワーク設定��6 個）
-      performance.py              # パフォーマンスメトリクス（2 個）
+      networking.py               # ネットワーク設定（15 個）
+      performance.py              # パフォーマンスメトリクス（7 個）
       events.py                   # イベント・監視（8 個）
-      storage.py                  # ストレージ（13 個）
-      batch.py                    # バッチ操作（3 個）
-      guest.py                    # ゲスト OS 操作（8 個）
-      tags.py                     # タグ・属性（6 個）
+      storage.py                  # ストレージ（21 個）
+      batch.py                    # バッチ操作（5 個）
+      guest.py                    # ゲスト OS 操作（14 個）
+      tags.py                     # タグ・属性（7 個）
       advanced_settings.py        # 詳細設定（4 個）
       vcenter_admin.py            # vCenter 管理（14 個）
-      cluster_config.py           # クラスタ設定（17 個）
+      cluster_config.py           # クラスタ設定（25 個）
       folders.py                  # フォルダ管理（6 個）
       datastore_browser.py        # データストアブラウザ（5 個）
+      datacenter.py               # データセンター管理（3 個）
+      customization.py            # カスタマイズ仕様（6 個）
+      alarm.py                    # アラーム管理（4 個）
+      vsphere_tags.py             # vSphere タグ REST API（9 個）
+      content_library.py          # コンテンツライブラリ（7 個）
+      vapp.py                     # vApp ライフサイクル（4 個）
+      scheduled_tasks.py          # スケジュールタスク（3 個）
+      host_profile.py             # ホストプロファイル（2 個）
+      license.py                  # ライセンス管理（4 個）
+      fault_tolerance.py          # フォールトトレランス（3 個）
     utils/
       property_collector.py       # PropertyCollector による効率的プロパティ取得
   tests/                          # vcsim 対象の統合テスト
@@ -377,7 +397,7 @@ vsphere-mcp/
     CONTRIBUTING.md               # コントリビュートガイド
     SECURITY.md                   # セキュリティポリシー
     CHANGELOG.md                  # 変更履歴
-    TOOLS.md                      # 全 204 ツール詳細一覧
+    TOOLS.md                      # 全 301 ツール詳細一覧
   .github/
     workflows/ci.yml              # GitHub Actions CI
     dependabot.yml                # Dependabot 設定（pip / GitHub Actions）
