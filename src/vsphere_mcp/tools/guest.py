@@ -17,8 +17,8 @@ def register_guest_tools(mcp: Any, client: VSphereClient) -> None:
     @require_confirm(danger_level="high")
     def execute_guest_command(
         vm_name: str,
-        username: str,
-        password: str,
+        guest_username: str,
+        guest_password: str,
         command: str,
         arguments: str = "",
         working_directory: str = "",
@@ -44,7 +44,9 @@ def register_guest_tools(mcp: Any, client: VSphereClient) -> None:
         if not guest_ops or not guest_ops.processManager:
             return {"status": "error", "error": "Guest operations not available"}
 
-        creds = vim.vm.guest.NamePasswordAuthentication(username=username, password=password, interactiveSession=False)
+        creds = vim.vm.guest.NamePasswordAuthentication(
+            username=guest_username, password=guest_password, interactiveSession=False
+        )
 
         prog_spec = vim.vm.guest.ProcessManager.ProgramSpec(
             programPath=command,
@@ -74,8 +76,8 @@ def register_guest_tools(mcp: Any, client: VSphereClient) -> None:
     @handle_tool_errors
     def list_guest_processes(
         vm_name: str,
-        username: str,
-        password: str,
+        guest_username: str,
+        guest_password: str,
     ) -> dict[str, Any]:
         """List running processes inside a VM's guest OS via VMware Tools."""
         logger.info("list_guest_processes", vm_name=vm_name)
@@ -95,7 +97,9 @@ def register_guest_tools(mcp: Any, client: VSphereClient) -> None:
         if not guest_ops or not guest_ops.processManager:
             return {"status": "error", "error": "Guest operations not available"}
 
-        creds = vim.vm.guest.NamePasswordAuthentication(username=username, password=password, interactiveSession=False)
+        creds = vim.vm.guest.NamePasswordAuthentication(
+            username=guest_username, password=guest_password, interactiveSession=False
+        )
 
         try:
             processes = guest_ops.processManager.ListProcessesInGuest(vm=found["_obj"], auth=creds)
@@ -116,3 +120,232 @@ def register_guest_tools(mcp: Any, client: VSphereClient) -> None:
             return {"status": "error", "error": "Invalid guest credentials"}
         except vim.fault.GuestOperationsUnavailable:
             return {"status": "error", "error": "Guest operations unavailable"}
+
+    @mcp.tool()
+    @handle_tool_errors
+    def list_guest_files(
+        vm_name: str,
+        guest_username: str,
+        guest_password: str,
+        directory_path: str,
+    ) -> dict[str, Any]:
+        """List files in a directory inside a VM's guest OS via VMware Tools."""
+        logger.info("list_guest_files", vm_name=vm_name, directory_path=directory_path)
+        found = find_vm_with_props(client, vm_name, ["guest.toolsStatus"])
+        if found is None:
+            return {"status": "error", "error": f"VM '{vm_name}' not found"}
+
+        tools_status = str(found.get("guest.toolsStatus", ""))
+        if tools_status not in ("toolsOk", "toolsOld"):
+            return {
+                "status": "error",
+                "error": (f"VMware Tools not running on '{vm_name}' (status: {tools_status})"),
+            }
+
+        content = client.content
+        guest_ops = content.guestOperationsManager
+        if not guest_ops or not guest_ops.fileManager:
+            return {"status": "error", "error": "Guest operations not available"}
+
+        vm_obj = found["_obj"]
+        auth = vim.vm.guest.NamePasswordAuthentication(
+            username=guest_username, password=guest_password, interactiveSession=False
+        )
+        fm = guest_ops.fileManager
+        result = fm.ListFilesInGuest(vm=vm_obj, auth=auth, filePath=directory_path)
+        files = []
+        for f in result.files or []:
+            files.append(
+                {
+                    "path": f.path,
+                    "type": f.type if hasattr(f, "type") else None,
+                    "size": f.size if hasattr(f, "size") else None,
+                }
+            )
+        return {"vm_name": vm_name, "directory_path": directory_path, "total": len(files), "files": files}
+
+    @mcp.tool()
+    @handle_tool_errors
+    @require_confirm(danger_level="medium")
+    def create_guest_directory(
+        vm_name: str,
+        guest_username: str,
+        guest_password: str,
+        directory_path: str,
+        create_parents: bool = True,
+    ) -> dict[str, Any]:
+        """Create a directory inside a VM's guest OS via VMware Tools."""
+        logger.info("create_guest_directory", vm_name=vm_name, directory_path=directory_path)
+        found = find_vm_with_props(client, vm_name, ["guest.toolsStatus"])
+        if found is None:
+            return {"status": "error", "error": f"VM '{vm_name}' not found"}
+
+        tools_status = str(found.get("guest.toolsStatus", ""))
+        if tools_status not in ("toolsOk", "toolsOld"):
+            return {
+                "status": "error",
+                "error": (f"VMware Tools not running on '{vm_name}' (status: {tools_status})"),
+            }
+
+        content = client.content
+        guest_ops = content.guestOperationsManager
+        if not guest_ops or not guest_ops.fileManager:
+            return {"status": "error", "error": "Guest operations not available"}
+
+        vm_obj = found["_obj"]
+        auth = vim.vm.guest.NamePasswordAuthentication(
+            username=guest_username, password=guest_password, interactiveSession=False
+        )
+        fm = guest_ops.fileManager
+        fm.MakeDirectoryInGuest(
+            vm=vm_obj, auth=auth, directoryPath=directory_path, createParentDirectories=create_parents
+        )
+        return {
+            "status": "success",
+            "vm_name": vm_name,
+            "directory_path": directory_path,
+            "create_parents": create_parents,
+            "operation": "create_guest_directory",
+        }
+
+    @mcp.tool()
+    @handle_tool_errors
+    @require_confirm(danger_level="high")
+    def delete_guest_file(
+        vm_name: str,
+        guest_username: str,
+        guest_password: str,
+        file_path: str,
+    ) -> dict[str, Any]:
+        """Delete a file inside a VM's guest OS via VMware Tools."""
+        logger.info("delete_guest_file", vm_name=vm_name, file_path=file_path)
+        found = find_vm_with_props(client, vm_name, ["guest.toolsStatus"])
+        if found is None:
+            return {"status": "error", "error": f"VM '{vm_name}' not found"}
+
+        tools_status = str(found.get("guest.toolsStatus", ""))
+        if tools_status not in ("toolsOk", "toolsOld"):
+            return {
+                "status": "error",
+                "error": (f"VMware Tools not running on '{vm_name}' (status: {tools_status})"),
+            }
+
+        content = client.content
+        guest_ops = content.guestOperationsManager
+        if not guest_ops or not guest_ops.fileManager:
+            return {"status": "error", "error": "Guest operations not available"}
+
+        vm_obj = found["_obj"]
+        auth = vim.vm.guest.NamePasswordAuthentication(
+            username=guest_username, password=guest_password, interactiveSession=False
+        )
+        fm = guest_ops.fileManager
+        fm.DeleteFileInGuest(vm=vm_obj, auth=auth, filePath=file_path)
+        return {
+            "status": "success",
+            "vm_name": vm_name,
+            "file_path": file_path,
+            "operation": "delete_guest_file",
+        }
+
+    @mcp.tool()
+    @handle_tool_errors
+    @require_confirm(danger_level="high")
+    def terminate_guest_process(
+        vm_name: str,
+        guest_username: str,
+        guest_password: str,
+        pid: int,
+    ) -> dict[str, Any]:
+        """Terminate a process by PID inside a VM's guest OS via VMware Tools."""
+        logger.info("terminate_guest_process", vm_name=vm_name, pid=pid)
+        found = find_vm_with_props(client, vm_name, ["guest.toolsStatus"])
+        if found is None:
+            return {"status": "error", "error": f"VM '{vm_name}' not found"}
+
+        tools_status = str(found.get("guest.toolsStatus", ""))
+        if tools_status not in ("toolsOk", "toolsOld"):
+            return {
+                "status": "error",
+                "error": (f"VMware Tools not running on '{vm_name}' (status: {tools_status})"),
+            }
+
+        content = client.content
+        guest_ops = content.guestOperationsManager
+        if not guest_ops or not guest_ops.processManager:
+            return {"status": "error", "error": "Guest operations not available"}
+
+        vm_obj = found["_obj"]
+        auth = vim.vm.guest.NamePasswordAuthentication(
+            username=guest_username, password=guest_password, interactiveSession=False
+        )
+        pm = guest_ops.processManager
+        pm.TerminateProcessInGuest(vm=vm_obj, auth=auth, pid=pid)
+        return {
+            "status": "success",
+            "vm_name": vm_name,
+            "pid": pid,
+            "operation": "terminate_guest_process",
+        }
+
+    @mcp.tool()
+    @handle_tool_errors
+    @require_confirm(danger_level="medium")
+    def upgrade_vmware_tools(vm_name: str) -> dict[str, Any]:
+        """Upgrade VMware Tools on a powered-on VM."""
+        from vsphere_mcp.tools._base import wait_for_task
+
+        logger.info("upgrade_vmware_tools", vm_name=vm_name)
+        found = find_vm_with_props(client, vm_name, ["runtime.powerState"])
+        if found is None:
+            return {"status": "error", "error": f"VM '{vm_name}' not found"}
+        power_state = str(found.get("runtime.powerState", ""))
+        if power_state != "poweredOn":
+            return {"status": "error", "error": f"VM '{vm_name}' is not powered on (state: {power_state})"}
+        vm_obj = found["_obj"]
+        task = vm_obj.UpgradeTools_Task()
+        result = wait_for_task(task)
+        result["vm_name"] = vm_name
+        result["operation"] = "upgrade_vmware_tools"
+        return result
+
+    @mcp.tool()
+    @handle_tool_errors
+    def read_guest_environment_variables(
+        vm_name: str,
+        guest_username: str,
+        guest_password: str,
+        names: list[str] | None = None,
+    ) -> dict[str, Any]:
+        """Read environment variables from a VM's guest OS via VMware Tools."""
+        logger.info("read_guest_environment_variables", vm_name=vm_name, names=names)
+        found = find_vm_with_props(client, vm_name, ["guest.toolsStatus"])
+        if found is None:
+            return {"status": "error", "error": f"VM '{vm_name}' not found"}
+
+        tools_status = str(found.get("guest.toolsStatus", ""))
+        if tools_status not in ("toolsOk", "toolsOld"):
+            return {
+                "status": "error",
+                "error": (f"VMware Tools not running on '{vm_name}' (status: {tools_status})"),
+            }
+
+        content = client.content
+        guest_ops = content.guestOperationsManager
+        if not guest_ops or not guest_ops.processManager:
+            return {"status": "error", "error": "Guest operations not available"}
+
+        vm_obj = found["_obj"]
+        auth = vim.vm.guest.NamePasswordAuthentication(
+            username=guest_username, password=guest_password, interactiveSession=False
+        )
+        pm = guest_ops.processManager
+        env_vars = pm.ReadEnvironmentVariableInGuest(vm=vm_obj, auth=auth, names=names or [])
+        parsed = {}
+        for entry in env_vars or []:
+            if "=" in entry:
+                k, _, v = entry.partition("=")
+                parsed[k] = v
+            else:
+                parsed[entry] = None
+        return {"vm_name": vm_name, "total": len(parsed), "environment_variables": parsed}

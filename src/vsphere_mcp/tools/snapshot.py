@@ -38,17 +38,28 @@ def register_snapshot_tools(mcp: Any, client: VSphereClient) -> None:
         found = find_vm_with_props(client, vm_name, ["snapshot"])
         if found is None:
             return {"status": "error", "error": f"VM '{vm_name}' not found"}
+        quiesce_warning = None
+        if quiesce and memory:
+            quiesce_warning = (
+                "quiesce is ignored when memory=True; "
+                "the snapshot will include memory but the guest filesystem will not be quiesced"
+            )
+            logger.warning("create_snapshot: quiesce ignored because memory=True", vm_name=vm_name)
         task = found["_obj"].CreateSnapshot(name=name, description=description, memory=memory, quiesce=quiesce)
         result = wait_for_task(task)
         result["vm_name"] = vm_name
         result["snapshot_name"] = name
         result["operation"] = "create_snapshot"
+        if quiesce_warning:
+            result["warning"] = quiesce_warning
         return result
 
     @mcp.tool()
     @handle_tool_errors
     @require_confirm(danger_level="high")
-    def revert_snapshot(vm_name: str, snapshot_name: str) -> dict[str, Any]:
+    def revert_snapshot(
+        vm_name: str, snapshot_name: str, suppress_power_on: bool = False
+    ) -> dict[str, Any]:
         """Revert a virtual machine to a named snapshot."""
         logger.info("revert_snapshot", vm_name=vm_name, snapshot_name=snapshot_name)
         found = find_vm_with_props(client, vm_name, ["snapshot"])
@@ -63,7 +74,7 @@ def register_snapshot_tools(mcp: Any, client: VSphereClient) -> None:
                 "status": "error",
                 "error": f"Snapshot '{snapshot_name}' not found on VM '{vm_name}'",
             }
-        task = snap.RevertToSnapshot_Task()
+        task = snap.RevertToSnapshot_Task(suppressPowerOn=suppress_power_on)
         result = wait_for_task(task)
         result["vm_name"] = vm_name
         result["snapshot_name"] = snapshot_name
@@ -77,6 +88,7 @@ def register_snapshot_tools(mcp: Any, client: VSphereClient) -> None:
         vm_name: str,
         snapshot_name: str,
         remove_children: bool = False,
+        consolidate: bool = True,
     ) -> dict[str, Any]:
         """Remove a snapshot from a virtual machine."""
         logger.info("remove_snapshot", vm_name=vm_name, snapshot_name=snapshot_name)
@@ -92,9 +104,94 @@ def register_snapshot_tools(mcp: Any, client: VSphereClient) -> None:
                 "status": "error",
                 "error": f"Snapshot '{snapshot_name}' not found on VM '{vm_name}'",
             }
-        task = snap.RemoveSnapshot_Task(removeChildren=remove_children)
+        task = snap.RemoveSnapshot_Task(removeChildren=remove_children, consolidate=consolidate)
         result = wait_for_task(task)
         result["vm_name"] = vm_name
         result["snapshot_name"] = snapshot_name
         result["operation"] = "remove_snapshot"
+        return result
+
+    @mcp.tool()
+    @handle_tool_errors
+    @require_confirm(danger_level="high")
+    def remove_all_snapshots(vm_name: str) -> dict[str, Any]:
+        """Remove all snapshots from a virtual machine at once.
+
+        Args:
+            vm_name: Name of the VM.
+        """
+        logger.info("remove_all_snapshots", vm_name=vm_name)
+        found = find_vm_with_props(client, vm_name, ["snapshot"])
+        if found is None:
+            return {"status": "error", "error": f"VM '{vm_name}' not found"}
+        snap_info = found.get("snapshot")
+        if not snap_info or not hasattr(snap_info, "rootSnapshotList"):
+            return {"status": "error", "error": f"No snapshots found for VM '{vm_name}'"}
+        task = found["_obj"].RemoveAllSnapshots_Task()
+        result = wait_for_task(task)
+        result["vm_name"] = vm_name
+        result["operation"] = "remove_all_snapshots"
+        return result
+
+    @mcp.tool()
+    @handle_tool_errors
+    @require_confirm(danger_level="medium")
+    def rename_snapshot(
+        vm_name: str,
+        snapshot_name: str,
+        new_name: str | None = None,
+        new_description: str | None = None,
+    ) -> dict[str, Any]:
+        """Rename a snapshot and/or update its description.
+
+        Args:
+            vm_name: Name of the VM.
+            snapshot_name: Current name of the snapshot.
+            new_name: New name for the snapshot (optional).
+            new_description: New description for the snapshot (optional).
+        """
+        logger.info("rename_snapshot", vm_name=vm_name, snapshot_name=snapshot_name)
+        if not new_name and new_description is None:
+            return {"status": "error", "error": "At least new_name or new_description must be specified"}
+        found = find_vm_with_props(client, vm_name, ["snapshot"])
+        if found is None:
+            return {"status": "error", "error": f"VM '{vm_name}' not found"}
+        snap_info = found.get("snapshot")
+        if not snap_info or not hasattr(snap_info, "rootSnapshotList"):
+            return {"status": "error", "error": f"No snapshots found for VM '{vm_name}'"}
+        snap = _find_snapshot_by_name(snap_info.rootSnapshotList, snapshot_name)
+        if snap is None:
+            return {"status": "error", "error": f"Snapshot '{snapshot_name}' not found on VM '{vm_name}'"}
+        snap.RenameSnapshot(name=new_name or snapshot_name, description=new_description)
+        return {
+            "status": "success",
+            "vm_name": vm_name,
+            "operation": "rename_snapshot",
+            "old_name": snapshot_name,
+            "new_name": new_name or snapshot_name,
+        }
+
+    @mcp.tool()
+    @handle_tool_errors
+    @require_confirm(danger_level="high")
+    def revert_to_current_snapshot(
+        vm_name: str, suppress_power_on: bool = False
+    ) -> dict[str, Any]:
+        """Revert a VM to its current (most recent) snapshot.
+
+        Args:
+            vm_name: Name of the VM.
+            suppress_power_on: If True, prevent the VM from powering on after revert.
+        """
+        logger.info("revert_to_current_snapshot", vm_name=vm_name)
+        found = find_vm_with_props(client, vm_name, ["snapshot"])
+        if found is None:
+            return {"status": "error", "error": f"VM '{vm_name}' not found"}
+        snap_info = found.get("snapshot")
+        if not snap_info or not hasattr(snap_info, "currentSnapshot"):
+            return {"status": "error", "error": f"No current snapshot found for VM '{vm_name}'"}
+        task = found["_obj"].RevertToCurrentSnapshot_Task(suppressPowerOn=suppress_power_on)
+        result = wait_for_task(task)
+        result["vm_name"] = vm_name
+        result["operation"] = "revert_to_current_snapshot"
         return result

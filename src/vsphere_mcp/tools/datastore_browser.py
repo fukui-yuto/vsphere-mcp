@@ -134,3 +134,120 @@ def register_datastore_browser_tools(mcp: Any, client: VSphereClient) -> None:
         result["file_path"] = file_path
         result["operation"] = "delete_datastore_file"
         return result
+
+    @mcp.tool()
+    @handle_tool_errors
+    @require_confirm(danger_level="high")
+    def copy_datastore_file(
+        source_path: str,
+        dest_path: str,
+        force: bool = False,
+        datacenter_name: str | None = None,
+    ) -> dict[str, Any]:
+        """Copy a file between datastore paths. Paths use [datastore] format.
+
+        Args:
+            source_path: Source datastore path in [datastore] format.
+            dest_path: Destination datastore path in [datastore] format.
+            force: If True, overwrite the destination file if it exists.
+            datacenter_name: Name of the datacenter. If None, the first datacenter is used.
+        """
+        logger.info("copy_datastore_file", source_path=source_path, dest_path=dest_path)
+        content = client.content
+        dc_items = collect_properties(client, vim.Datacenter, ["name"])
+        if not dc_items:
+            return {"status": "error", "error": "No datacenter found"}
+        dc_obj = None
+        if datacenter_name:
+            for item in dc_items:
+                if item.get("name") == datacenter_name:
+                    dc_obj = item["_obj"]
+                    break
+            if dc_obj is None:
+                return {"status": "error", "error": f"Datacenter '{datacenter_name}' not found"}
+        else:
+            dc_obj = dc_items[0]["_obj"]
+        file_manager = content.fileManager
+        if file_manager is None:
+            return {"status": "error", "error": "fileManager not available"}
+        task = file_manager.CopyDatastoreFile_Task(
+            sourceName=source_path,
+            sourceDatacenter=dc_obj,
+            destinationName=dest_path,
+            destinationDatacenter=dc_obj,
+            force=force,
+        )
+        result = wait_for_task(task)
+        result["source_path"] = source_path
+        result["dest_path"] = dest_path
+        result["operation"] = "copy_datastore_file"
+        return result
+
+    @mcp.tool()
+    @handle_tool_errors
+    @require_confirm(danger_level="high")
+    def move_datastore_file(
+        source_path: str,
+        dest_path: str,
+        force: bool = False,
+        datacenter_name: str | None = None,
+    ) -> dict[str, Any]:
+        """Move a file between datastore paths. Paths use [datastore] format.
+
+        Args:
+            source_path: Source datastore path in [datastore] format.
+            dest_path: Destination datastore path in [datastore] format.
+            force: If True, overwrite the destination file if it exists.
+            datacenter_name: Name of the datacenter. If None, the first datacenter is used.
+        """
+        logger.info("move_datastore_file", source_path=source_path, dest_path=dest_path)
+        content = client.content
+        dc_items = collect_properties(client, vim.Datacenter, ["name"])
+        if not dc_items:
+            return {"status": "error", "error": "No datacenter found"}
+        dc_obj = None
+        if datacenter_name:
+            for item in dc_items:
+                if item.get("name") == datacenter_name:
+                    dc_obj = item["_obj"]
+                    break
+            if dc_obj is None:
+                return {"status": "error", "error": f"Datacenter '{datacenter_name}' not found"}
+        else:
+            dc_obj = dc_items[0]["_obj"]
+        file_manager = content.fileManager
+        if file_manager is None:
+            return {"status": "error", "error": "fileManager not available"}
+        task = file_manager.MoveDatastoreFile_Task(
+            sourceName=source_path,
+            sourceDatacenter=dc_obj,
+            destinationName=dest_path,
+            destinationDatacenter=dc_obj,
+            force=force,
+        )
+        result = wait_for_task(task)
+        result["source_path"] = source_path
+        result["dest_path"] = dest_path
+        result["operation"] = "move_datastore_file"
+        return result
+
+    @mcp.tool()
+    @handle_tool_errors
+    @require_confirm(danger_level="medium")
+    def create_datastore_directory(datastore_path: str) -> dict[str, Any]:
+        """Create a directory on a datastore. Path must use [datastore] format, e.g. '[datastore1] new_folder'."""
+        logger.info("create_datastore_directory", datastore_path=datastore_path)
+        content = client.content
+        dc_items = collect_properties(client, vim.Datacenter, ["name"])
+        if not dc_items:
+            return {"status": "error", "error": "No datacenter found"}
+        dc_obj = dc_items[0]["_obj"]
+        file_manager = content.fileManager
+        if file_manager is None:
+            return {"status": "error", "error": "fileManager not available"}
+        file_manager.MakeDirectory(name=datastore_path, datacenter=dc_obj, createParentDirectories=True)
+        return {
+            "status": "success",
+            "datastore_path": datastore_path,
+            "operation": "create_datastore_directory",
+        }

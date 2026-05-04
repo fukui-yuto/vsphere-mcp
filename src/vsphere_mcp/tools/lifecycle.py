@@ -43,25 +43,58 @@ def register_lifecycle_tools(mcp: Any, client: VSphereClient) -> None:
         vm_name: str,
         clone_name: str,
         power_on: bool = False,
+        datastore_name: str | None = None,
+        host_name: str | None = None,
+        resource_pool_name: str | None = None,
+        folder_name: str | None = None,
     ) -> dict[str, Any]:
         """Clone an existing virtual machine."""
         logger.info("clone_vm", vm_name=vm_name, clone_name=clone_name)
+        from vsphere_mcp.utils.property_collector import collect_properties
+
         found = find_vm_with_props(client, vm_name)
         if found is None:
             return {"status": "error", "error": f"VM '{vm_name}' not found"}
         vm_obj = found["_obj"]
-        # Get the VM's folder for placement
-        folder = vm_obj.parent
+
         relocate_spec = vim.vm.RelocateSpec()
+
+        if datastore_name is not None:
+            ds_items = collect_properties(client, vim.Datastore, ["name"])
+            ds_obj = next((d["_obj"] for d in ds_items if d.get("name") == datastore_name), None)
+            if ds_obj is None:
+                return {"status": "error", "error": f"Datastore '{datastore_name}' not found"}
+            relocate_spec.datastore = ds_obj
+
+        if host_name is not None:
+            host_obj = find_host_by_name(client, host_name)
+            if host_obj is None:
+                return {"status": "error", "error": f"Host '{host_name}' not found"}
+            relocate_spec.host = host_obj
+
+        if resource_pool_name is not None:
+            rp_items = collect_properties(client, vim.ResourcePool, ["name"])
+            rp_obj = next((r["_obj"] for r in rp_items if r.get("name") == resource_pool_name), None)
+            if rp_obj is None:
+                return {"status": "error", "error": f"Resource pool '{resource_pool_name}' not found"}
+            relocate_spec.pool = rp_obj
+
+        # Determine target folder
+        if folder_name is not None:
+            folder_items = collect_properties(client, vim.Folder, ["name"])
+            folder_obj = next((f["_obj"] for f in folder_items if f.get("name") == folder_name), None)
+            if folder_obj is None:
+                return {"status": "error", "error": f"Folder '{folder_name}' not found"}
+            folder = folder_obj
+        else:
+            folder = vm_obj.parent
+
         clone_spec = vim.vm.CloneSpec(
             location=relocate_spec,
             powerOn=power_on,
             template=False,
         )
-        if hasattr(folder, "CloneVM_Task"):
-            task = folder.CloneVM_Task(vm_obj, name=clone_name, spec=clone_spec)
-        else:
-            task = vm_obj.Clone(folder=folder, name=clone_name, spec=clone_spec)
+        task = vm_obj.Clone(folder=folder, name=clone_name, spec=clone_spec)
         result = wait_for_task(task)
         result["vm_name"] = vm_name
         result["clone_name"] = clone_name
@@ -75,15 +108,59 @@ def register_lifecycle_tools(mcp: Any, client: VSphereClient) -> None:
         template_name: str,
         vm_name: str,
         power_on: bool = False,
+        datastore_name: str | None = None,
+        host_name: str | None = None,
+        resource_pool_name: str | None = None,
+        folder_name: str | None = None,
     ) -> dict[str, Any]:
         """Deploy a new VM from a template."""
         logger.info("deploy_from_template", template_name=template_name, vm_name=vm_name)
+        from vsphere_mcp.utils.property_collector import collect_properties
+
         found = find_vm_with_props(client, template_name)
         if found is None:
             return {"status": "error", "error": f"Template '{template_name}' not found"}
         template_obj = found["_obj"]
-        folder = template_obj.parent
+
+        # Verify the source is actually a template
+        if not getattr(template_obj.config, "template", False):
+            return {
+                "status": "error",
+                "error": f"'{template_name}' is not a template. Use clone_vm instead.",
+            }
+
         relocate_spec = vim.vm.RelocateSpec()
+
+        if datastore_name is not None:
+            ds_items = collect_properties(client, vim.Datastore, ["name"])
+            ds_obj = next((d["_obj"] for d in ds_items if d.get("name") == datastore_name), None)
+            if ds_obj is None:
+                return {"status": "error", "error": f"Datastore '{datastore_name}' not found"}
+            relocate_spec.datastore = ds_obj
+
+        if host_name is not None:
+            host_obj = find_host_by_name(client, host_name)
+            if host_obj is None:
+                return {"status": "error", "error": f"Host '{host_name}' not found"}
+            relocate_spec.host = host_obj
+
+        if resource_pool_name is not None:
+            rp_items = collect_properties(client, vim.ResourcePool, ["name"])
+            rp_obj = next((r["_obj"] for r in rp_items if r.get("name") == resource_pool_name), None)
+            if rp_obj is None:
+                return {"status": "error", "error": f"Resource pool '{resource_pool_name}' not found"}
+            relocate_spec.pool = rp_obj
+
+        # Determine target folder
+        if folder_name is not None:
+            folder_items = collect_properties(client, vim.Folder, ["name"])
+            folder_obj = next((f["_obj"] for f in folder_items if f.get("name") == folder_name), None)
+            if folder_obj is None:
+                return {"status": "error", "error": f"Folder '{folder_name}' not found"}
+            folder = folder_obj
+        else:
+            folder = template_obj.parent
+
         clone_spec = vim.vm.CloneSpec(
             location=relocate_spec,
             powerOn=power_on,
@@ -99,7 +176,15 @@ def register_lifecycle_tools(mcp: Any, client: VSphereClient) -> None:
     @mcp.tool()
     @handle_tool_errors
     @require_confirm(danger_level="medium")
-    def register_vm(datacenter_name: str, folder_name: str, vmx_path: str, vm_name: str) -> dict[str, Any]:
+    def register_vm(
+        datacenter_name: str,
+        folder_name: str,
+        vmx_path: str,
+        vm_name: str,
+        resource_pool_name: str | None = None,
+        host_name: str | None = None,
+        as_template: bool = False,
+    ) -> dict[str, Any]:
         """Register a VMX file as a VM. vmx_path example: '[ds1] vm/vm.vmx'."""
         logger.info(
             "register_vm",
@@ -130,7 +215,28 @@ def register_lifecycle_tools(mcp: Any, client: VSphereClient) -> None:
         if folder_obj is None:
             return {"status": "error", "error": f"Folder '{folder_name}' not found"}
 
-        task = folder_obj.RegisterVM_Task(path=vmx_path, name=vm_name, asTemplate=False)
+        # Resolve optional resource pool
+        pool_obj = None
+        if resource_pool_name is not None:
+            rp_items = collect_properties(client, vim.ResourcePool, ["name"])
+            pool_obj = next((r["_obj"] for r in rp_items if r.get("name") == resource_pool_name), None)
+            if pool_obj is None:
+                return {"status": "error", "error": f"Resource pool '{resource_pool_name}' not found"}
+
+        # Resolve optional host
+        host_obj = None
+        if host_name is not None:
+            host_obj = find_host_by_name(client, host_name)
+            if host_obj is None:
+                return {"status": "error", "error": f"Host '{host_name}' not found"}
+
+        task = folder_obj.RegisterVM_Task(
+            path=vmx_path,
+            name=vm_name,
+            asTemplate=as_template,
+            pool=pool_obj,
+            host=host_obj,
+        )
         result = wait_for_task(task)
         result["vm_name"] = vm_name
         result["vmx_path"] = vmx_path
@@ -157,7 +263,11 @@ def register_lifecycle_tools(mcp: Any, client: VSphereClient) -> None:
     @mcp.tool()
     @handle_tool_errors
     @require_confirm(danger_level="high")
-    def convert_template_to_vm(vm_name: str, host_name: str) -> dict[str, Any]:
+    def convert_template_to_vm(
+        vm_name: str,
+        host_name: str,
+        resource_pool_name: str | None = None,
+    ) -> dict[str, Any]:
         """Convert a template back to a virtual machine on the specified host."""
         logger.info("convert_template_to_vm", vm_name=vm_name, host_name=host_name)
         found = find_vm_with_props(client, vm_name)
@@ -168,7 +278,19 @@ def register_lifecycle_tools(mcp: Any, client: VSphereClient) -> None:
         if host_obj is None:
             return {"status": "error", "error": f"Host '{host_name}' not found"}
 
-        found["_obj"].MarkAsVirtualMachine(host=host_obj)
+        # Resolve resource pool
+        if resource_pool_name is not None:
+            from vsphere_mcp.utils.property_collector import collect_properties
+
+            rp_items = collect_properties(client, vim.ResourcePool, ["name"])
+            pool_obj = next((r["_obj"] for r in rp_items if r.get("name") == resource_pool_name), None)
+            if pool_obj is None:
+                return {"status": "error", "error": f"Resource pool '{resource_pool_name}' not found"}
+        else:
+            # Fall back to the host's parent resource pool
+            pool_obj = host_obj.parent.resourcePool
+
+        found["_obj"].MarkAsVirtualMachine(host=host_obj, pool=pool_obj)
         return {"status": "success", "vm_name": vm_name, "host_name": host_name, "operation": "convert_template_to_vm"}
 
     @mcp.tool()
@@ -182,6 +304,8 @@ def register_lifecycle_tools(mcp: Any, client: VSphereClient) -> None:
         memory_mb: int,
         guest_id: str,
         datastore_name: str,
+        resource_pool_name: str | None = None,
+        firmware: str = "bios",
     ) -> dict[str, Any]:
         """Create a new empty virtual machine with the specified configuration."""
         logger.info(
@@ -198,6 +322,8 @@ def register_lifecycle_tools(mcp: Any, client: VSphereClient) -> None:
             return {"status": "error", "error": "num_cpus must be a positive integer"}
         if memory_mb < 4:
             return {"status": "error", "error": "memory_mb must be at least 4"}
+        if firmware not in ("bios", "efi"):
+            return {"status": "error", "error": "firmware must be 'bios' or 'efi'"}
         from vsphere_mcp.utils.property_collector import collect_properties
 
         # Find datacenter
@@ -220,13 +346,19 @@ def register_lifecycle_tools(mcp: Any, client: VSphereClient) -> None:
         if folder_obj is None:
             return {"status": "error", "error": f"Folder '{folder_name}' not found"}
 
-        # Find resource pool from datacenter
+        # Find resource pool
         resource_pools = collect_properties(client, vim.ResourcePool, ["name"])
         pool_obj = None
-        if resource_pools:
-            pool_obj = resource_pools[0]["_obj"]
-        if pool_obj is None:
-            return {"status": "error", "error": "No resource pool found"}
+        if resource_pool_name is not None:
+            pool_obj = next((r["_obj"] for r in resource_pools if r.get("name") == resource_pool_name), None)
+            if pool_obj is None:
+                return {"status": "error", "error": f"Resource pool '{resource_pool_name}' not found"}
+        else:
+            if resource_pools:
+                pool_obj = resource_pools[0]["_obj"]
+                logger.warning("create_vm: no resource_pool_name specified, using first available pool")
+            if pool_obj is None:
+                return {"status": "error", "error": "No resource pool found"}
 
         # Build VM config spec
         vm_file_info = vim.vm.FileInfo(vmPathName=f"[{datastore_name}]")
@@ -236,6 +368,7 @@ def register_lifecycle_tools(mcp: Any, client: VSphereClient) -> None:
             memoryMB=memory_mb,
             guestId=guest_id,
             files=vm_file_info,
+            firmware=firmware,
         )
 
         task = folder_obj.CreateVM_Task(config=config_spec, pool=pool_obj)

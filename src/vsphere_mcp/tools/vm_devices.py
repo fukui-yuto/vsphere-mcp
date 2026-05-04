@@ -12,6 +12,7 @@ from vsphere_mcp.tools._base import (
     require_confirm,
     wait_for_task,
 )
+from vsphere_mcp.utils.property_collector import collect_properties
 
 logger = get_logger(__name__)
 
@@ -20,8 +21,14 @@ def register_vm_device_tools(mcp: Any, client: VSphereClient) -> None:
     @mcp.tool()
     @handle_tool_errors
     @require_confirm(danger_level="high")
-    def remove_disk(vm_name: str, disk_label: str) -> dict[str, Any]:
-        """Remove a virtual disk from a VM and delete its backing file. Example: disk_label='Hard disk 1'."""
+    def remove_disk(vm_name: str, disk_label: str, delete_backing: bool = True) -> dict[str, Any]:
+        """Remove a virtual disk from a VM.
+
+        Args:
+            vm_name: Name of the VM.
+            disk_label: Label of the disk (e.g. 'Hard disk 1').
+            delete_backing: If True (default), delete the VMDK file. If False, detach only (keep file for reattach).
+        """
         logger.info("remove_disk", vm_name=vm_name, disk_label=disk_label)
         found = find_vm_with_props(client, vm_name, ["config.hardware.device"])
         if found is None:
@@ -36,11 +43,13 @@ def register_vm_device_tools(mcp: Any, client: VSphereClient) -> None:
         if disk is None:
             return {"status": "error", "error": f"Disk '{disk_label}' not found on VM '{vm_name}'"}
 
-        disk_spec = vim.vm.device.VirtualDeviceSpec(
-            operation=vim.vm.device.VirtualDeviceSpec.Operation.remove,
-            fileOperation=vim.vm.device.VirtualDeviceSpec.FileOperation.destroy,
-            device=disk,
-        )
+        spec_kwargs: dict[str, Any] = {
+            "operation": vim.vm.device.VirtualDeviceSpec.Operation.remove,
+            "device": disk,
+        }
+        if delete_backing:
+            spec_kwargs["fileOperation"] = vim.vm.device.VirtualDeviceSpec.FileOperation.destroy
+        disk_spec = vim.vm.device.VirtualDeviceSpec(**spec_kwargs)
         config_spec = vim.vm.ConfigSpec(deviceChange=[disk_spec])
         task = found["_obj"].Reconfigure(spec=config_spec)
         result = wait_for_task(task)
@@ -529,3 +538,288 @@ def register_vm_device_tools(mcp: Any, client: VSphereClient) -> None:
             "total_snapshot_mb": round(total_bytes / (1024 * 1024), 2),
             "snapshots": snapshots,
         }
+
+    @mcp.tool()
+    @handle_tool_errors
+    @require_confirm(danger_level="medium")
+    def change_vm_nic_network(vm_name: str, nic_label: str, network_name: str) -> dict[str, Any]:
+        """Change an existing NIC to a different network/portgroup. Example: nic_label='Network adapter 1'."""
+        logger.info("change_vm_nic_network", vm_name=vm_name, nic_label=nic_label, network_name=network_name)
+        found = find_vm_with_props(client, vm_name, ["config.hardware.device"])
+        if found is None:
+            return {"status": "error", "error": f"VM '{vm_name}' not found"}
+
+        devices = found.get("config.hardware.device", [])
+        nic = None
+        for dev in devices:
+            if isinstance(dev, vim.vm.device.VirtualEthernetCard) and dev.deviceInfo.label == nic_label:
+                nic = dev
+                break
+        if nic is None:
+            return {"status": "error", "error": f"NIC '{nic_label}' not found on VM '{vm_name}'"}
+
+        # Try standard network first
+        backing = None
+        std_nets = collect_properties(client, vim.Network, ["name"])
+        for net in std_nets:
+            if net.get("name") == network_name:
+                net_obj = net["_obj"]
+                backing = vim.vm.device.VirtualEthernetCard.NetworkBackingInfo(
+                    deviceName=network_name,
+                    network=net_obj,
+                )
+                break
+
+        # Fall back to DVS portgroup
+        if backing is None:
+            dvs_pgs = collect_properties(
+                client,
+                vim.dvs.DistributedVirtualPortgroup,
+                ["name", "key", "config.distributedVirtualSwitch"],
+            )
+            for pg in dvs_pgs:
+                if pg.get("name") == network_name:
+                    pg_obj = pg["_obj"]
+                    backing = vim.vm.device.VirtualEthernetCard.DistributedVirtualPortBackingInfo(
+                        port=vim.dvs.PortConnection(
+                            portgroupKey=pg_obj.key,
+                            switchUuid=pg_obj.config.distributedVirtualSwitch.uuid,
+                        )
+                    )
+                    break
+
+        if backing is None:
+            return {
+                "status": "error",
+                "error": f"Network '{network_name}' not found (checked standard and DVS portgroups)",
+            }
+
+        nic.backing = backing
+        nic_spec = vim.vm.device.VirtualDeviceSpec(
+            operation=vim.vm.device.VirtualDeviceSpec.Operation.edit,
+            device=nic,
+        )
+        config_spec = vim.vm.ConfigSpec(deviceChange=[nic_spec])
+        task = found["_obj"].Reconfigure(spec=config_spec)
+        result = wait_for_task(task)
+        result["vm_name"] = vm_name
+        result["nic_label"] = nic_label
+        result["network_name"] = network_name
+        result["operation"] = "change_vm_nic_network"
+        return result
+
+    @mcp.tool()
+    @handle_tool_errors
+    @require_confirm(danger_level="medium")
+    def connect_disconnect_vm_nic(
+        vm_name: str, nic_label: str, connected: bool, start_connected: bool | None = None
+    ) -> dict[str, Any]:
+        """Toggle a NIC connected state on a VM.
+
+        Args:
+            vm_name: Name of the VM.
+            nic_label: Label of the NIC (e.g. 'Network adapter 1').
+            connected: Whether to connect (True) or disconnect (False) the NIC now.
+            start_connected: Whether to connect on VM power-on. If omitted, matches 'connected'.
+        """
+        logger.info("connect_disconnect_vm_nic", vm_name=vm_name, nic_label=nic_label, connected=connected)
+        found = find_vm_with_props(client, vm_name, ["config.hardware.device"])
+        if found is None:
+            return {"status": "error", "error": f"VM '{vm_name}' not found"}
+
+        devices = found.get("config.hardware.device", [])
+        nic = None
+        for dev in devices:
+            if isinstance(dev, vim.vm.device.VirtualEthernetCard) and dev.deviceInfo.label == nic_label:
+                nic = dev
+                break
+        if nic is None:
+            return {"status": "error", "error": f"NIC '{nic_label}' not found on VM '{vm_name}'"}
+
+        if nic.connectable is None:
+            nic.connectable = vim.vm.device.VirtualDevice.ConnectInfo()
+        nic.connectable.connected = connected
+        nic.connectable.startConnected = start_connected if start_connected is not None else connected
+
+        nic_spec = vim.vm.device.VirtualDeviceSpec(
+            operation=vim.vm.device.VirtualDeviceSpec.Operation.edit,
+            device=nic,
+        )
+        config_spec = vim.vm.ConfigSpec(deviceChange=[nic_spec])
+        task = found["_obj"].Reconfigure(spec=config_spec)
+        result = wait_for_task(task)
+        result["vm_name"] = vm_name
+        result["nic_label"] = nic_label
+        result["connected"] = connected
+        result["operation"] = "connect_disconnect_vm_nic"
+        return result
+
+    @mcp.tool()
+    @handle_tool_errors
+    @require_confirm(danger_level="medium")
+    def add_vm_scsi_controller(vm_name: str, controller_type: str = "pvscsi") -> dict[str, Any]:
+        """Add a SCSI/PVSCSI controller to a VM. controller_type: 'pvscsi', 'lsilogic', or 'lsilogicsas'."""
+        logger.info("add_vm_scsi_controller", vm_name=vm_name, controller_type=controller_type)
+        controller_map = {
+            "pvscsi": vim.vm.device.ParaVirtualSCSIController,
+            "lsilogic": vim.vm.device.VirtualLsiLogicController,
+            "lsilogicsas": vim.vm.device.VirtualLsiLogicSASController,
+        }
+        if controller_type not in controller_map:
+            return {
+                "status": "error",
+                "error": f"Invalid controller_type '{controller_type}'. Valid: {list(controller_map.keys())}",
+            }
+
+        found = find_vm_with_props(client, vm_name, ["config.hardware.device"])
+        if found is None:
+            return {"status": "error", "error": f"VM '{vm_name}' not found"}
+
+        devices = found.get("config.hardware.device", [])
+        existing_bus_numbers: set[int] = set()
+        for dev in devices:
+            if isinstance(dev, vim.vm.device.VirtualSCSIController):
+                existing_bus_numbers.add(dev.busNumber)
+
+        bus_number = 0
+        while bus_number in existing_bus_numbers:
+            bus_number += 1
+
+        ctrl_cls = controller_map[controller_type]
+        controller = ctrl_cls(
+            busNumber=bus_number,
+            sharedBus=vim.vm.device.VirtualSCSIController.Sharing.noSharing,
+        )
+        ctrl_spec = vim.vm.device.VirtualDeviceSpec(
+            operation=vim.vm.device.VirtualDeviceSpec.Operation.add,
+            device=controller,
+        )
+        config_spec = vim.vm.ConfigSpec(deviceChange=[ctrl_spec])
+        task = found["_obj"].Reconfigure(spec=config_spec)
+        result = wait_for_task(task)
+        result["vm_name"] = vm_name
+        result["controller_type"] = controller_type
+        result["bus_number"] = bus_number
+        result["operation"] = "add_vm_scsi_controller"
+        return result
+
+    @mcp.tool()
+    @handle_tool_errors
+    @require_confirm(danger_level="high")
+    def upgrade_vm_hardware(vm_name: str, version: str | None = None) -> dict[str, Any]:
+        """Upgrade virtual hardware version for a VM. VM must be powered off."""
+        logger.info("upgrade_vm_hardware", vm_name=vm_name, version=version)
+        found = find_vm_with_props(client, vm_name)
+        if found is None:
+            return {"status": "error", "error": f"VM '{vm_name}' not found"}
+
+        power_state = found.get("runtime.powerState")
+        if str(power_state) != "poweredOff":
+            return {"status": "error", "error": f"VM '{vm_name}' must be powered off before upgrading hardware"}
+
+        task = found["_obj"].UpgradeVM_Task(version=version)
+        result = wait_for_task(task)
+        result["vm_name"] = vm_name
+        result["version"] = version
+        result["operation"] = "upgrade_vm_hardware"
+        return result
+
+    @mcp.tool()
+    @handle_tool_errors
+    @require_confirm(danger_level="medium")
+    def set_vm_cpu_hotadd(
+        vm_name: str,
+        cpu_hot_add: bool | None = None,
+        memory_hot_add: bool | None = None,
+    ) -> dict[str, Any]:
+        """Enable or disable CPU and/or memory hot-add for a VM."""
+        logger.info("set_vm_cpu_hotadd", vm_name=vm_name, cpu_hot_add=cpu_hot_add, memory_hot_add=memory_hot_add)
+        if cpu_hot_add is None and memory_hot_add is None:
+            return {
+                "status": "error",
+                "error": "At least one of cpu_hot_add or memory_hot_add must be specified",
+            }
+
+        found = find_vm_with_props(client, vm_name)
+        if found is None:
+            return {"status": "error", "error": f"VM '{vm_name}' not found"}
+
+        config_spec = vim.vm.ConfigSpec()
+        if cpu_hot_add is not None:
+            config_spec.cpuHotAddEnabled = cpu_hot_add
+        if memory_hot_add is not None:
+            config_spec.memoryHotAddEnabled = memory_hot_add
+
+        task = found["_obj"].Reconfigure(spec=config_spec)
+        result = wait_for_task(task)
+        result["vm_name"] = vm_name
+        result["operation"] = "set_vm_cpu_hotadd"
+        if cpu_hot_add is not None:
+            result["cpu_hot_add"] = cpu_hot_add
+        if memory_hot_add is not None:
+            result["memory_hot_add"] = memory_hot_add
+        return result
+
+    @mcp.tool()
+    @handle_tool_errors
+    @require_confirm(danger_level="medium")
+    def set_vm_cores_per_socket(vm_name: str, cores_per_socket: int) -> dict[str, Any]:
+        """Set the number of cores per socket for a VM."""
+        logger.info("set_vm_cores_per_socket", vm_name=vm_name, cores_per_socket=cores_per_socket)
+        if cores_per_socket < 1:
+            return {"status": "error", "error": "cores_per_socket must be at least 1"}
+
+        found = find_vm_with_props(client, vm_name)
+        if found is None:
+            return {"status": "error", "error": f"VM '{vm_name}' not found"}
+
+        config_spec = vim.vm.ConfigSpec(numCoresPerSocket=cores_per_socket)
+        task = found["_obj"].Reconfigure(spec=config_spec)
+        result = wait_for_task(task)
+        result["vm_name"] = vm_name
+        result["cores_per_socket"] = cores_per_socket
+        result["operation"] = "set_vm_cores_per_socket"
+        return result
+
+    @mcp.tool()
+    @handle_tool_errors
+    @require_confirm(danger_level="high")
+    def change_vm_disk_mode(vm_name: str, disk_label: str, disk_mode: str) -> dict[str, Any]:
+        """Change disk mode for a virtual disk.
+
+        Args:
+            vm_name: Name of the VM.
+            disk_label: Label of the disk (e.g. 'Hard disk 1').
+            disk_mode: One of 'persistent', 'independent_persistent', 'independent_nonpersistent'.
+        """
+        logger.info("change_vm_disk_mode", vm_name=vm_name, disk_label=disk_label, disk_mode=disk_mode)
+        valid_modes = {"persistent", "independent_persistent", "independent_nonpersistent"}
+        if disk_mode not in valid_modes:
+            return {"status": "error", "error": f"Invalid disk_mode '{disk_mode}'. Valid: {sorted(valid_modes)}"}
+
+        found = find_vm_with_props(client, vm_name, ["config.hardware.device"])
+        if found is None:
+            return {"status": "error", "error": f"VM '{vm_name}' not found"}
+
+        devices = found.get("config.hardware.device", [])
+        disk = None
+        for dev in devices:
+            if isinstance(dev, vim.vm.device.VirtualDisk) and dev.deviceInfo.label == disk_label:
+                disk = dev
+                break
+        if disk is None:
+            return {"status": "error", "error": f"Disk '{disk_label}' not found on VM '{vm_name}'"}
+
+        disk.backing.diskMode = disk_mode
+        disk_spec = vim.vm.device.VirtualDeviceSpec(
+            operation=vim.vm.device.VirtualDeviceSpec.Operation.edit,
+            device=disk,
+        )
+        config_spec = vim.vm.ConfigSpec(deviceChange=[disk_spec])
+        task = found["_obj"].Reconfigure(spec=config_spec)
+        result = wait_for_task(task)
+        result["vm_name"] = vm_name
+        result["disk_label"] = disk_label
+        result["disk_mode"] = disk_mode
+        result["operation"] = "change_vm_disk_mode"
+        return result

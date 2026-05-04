@@ -7,9 +7,9 @@
 
 ## [0.2.0] - 2026-05-04
 
-大幅な機能拡充。127 ツールへの拡張、インフラ改善、ドキュメント整備。
+大幅な機能拡充。204 ツールへの拡張、インフラ改善、ドキュメント整備。
 
-### 全ツール一覧（127個）
+### 全ツール一覧（204個）
 
 | # | カテゴリ | ツール名 | 説明 | リスク |
 |---|---------|----------|------|--------|
@@ -91,65 +91,142 @@
 | 76 | ホスト設定 | `get_host_time_config` | ESXi ホスト現在時刻取得 | - |
 | 77 | ネットワーク | `get_dvswitch_config` | 分散仮想スイッチ詳細設定取得 | - |
 | 78 | ネットワーク | `get_dvportgroup_config` | 分散ポートグループ詳細設定取得 | - |
-| 79 | ネットワーク | `add_host_portgroup` | 標準ポートグループ追加 | 高 |
-| 80 | ネットワーク | `remove_host_portgroup` | 標準ポートグループ削除 | 高 |
-| 81 | パフォーマンス | `get_vm_performance` | VM パフォーマンスメトリクス | - |
-| 82 | パフォーマンス | `get_host_performance` | ホストパフォーマンスメトリクス | - |
-| 83 | イベント | `list_recent_events` | vCenter イベント一覧 | - |
-| 84 | イベント | `list_alarms` | トリガー済みアラーム一覧 | - |
-| 85 | イベント | `list_performance_counters` | パフォーマンスカウンタ一覧 | - |
-| 86 | イベント | `get_alarm_definitions` | アラーム定義一覧 | - |
-| 87 | イベント | `get_host_system_log` | ESXi ホスト診断ログ取得 | - |
-| 88 | イベント | `list_diagnostic_log_keys` | 診断ログキー一覧 | - |
-| 89 | ストレージ | `get_datastore_info` | データストア詳細情報 | - |
-| 90 | ストレージ | `get_storage_summary` | ストレージ全体サマリー | - |
-| 91 | ストレージ | `list_host_storage_devices` | ホスト SCSI LUN/HBA 一覧 | - |
-| 92 | ストレージ | `list_host_multipath_info` | ホストマルチパス情報一覧 | - |
-| 93 | ストレージ | `rescan_host_storage` | ホストストレージ再スキャン | 中 |
-| 94 | バッチ | `batch_power_operation` | 複数 VM 一括電源操作 | 高 |
-| 95 | バッチ | `batch_create_snapshots` | 複数 VM 一括スナップショット | 高 |
-| 96 | バッチ | `batch_get_vm_info` | 複数 VM 一括情報取得 | - |
-| 97 | ゲスト | `execute_guest_command` | ゲスト OS コマンド実行 | 高 |
-| 98 | ゲスト | `list_guest_processes` | ゲスト OS プロセス一覧 | - |
-| 99 | タグ | `get_vm_annotation` | VM アノテーション取得 | - |
-| 100 | タグ | `set_vm_annotation` | VM アノテーション設定 | 低 |
-| 101 | タグ | `get_custom_attributes` | カスタム属性定義一覧 | - |
-| 102 | タグ | `create_custom_attribute` | カスタム属性定義作成 | 中 |
-| 103 | タグ | `set_custom_attribute_value` | カスタム属性値設定 | 低 |
-| 104 | タグ | `get_entity_custom_attribute_values` | エンティティのカスタム属性値取得 | - |
-| 105 | 詳細設定 | `get_esxi_advanced_settings` | ESXi 詳細設定取得 | - |
-| 106 | 詳細設定 | `set_esxi_advanced_setting` | ESXi 詳細設定変更 | 高 |
-| 107 | 詳細設定 | `get_vcenter_advanced_settings` | vCenter 詳細設定取得 | - |
-| 108 | 詳細設定 | `set_vcenter_advanced_setting` | vCenter 詳細設定変更 | 高 |
-| 109 | vCenter 管理 | `list_roles` | vCenter ロール一覧 | - |
-| 110 | vCenter 管理 | `get_entity_permissions` | エンティティ権限取得 | - |
-| 111 | vCenter 管理 | `get_license_info` | ライセンス情報（キーマスク済み） | - |
-| 112 | vCenter 管理 | `list_active_sessions` | アクティブセッション一覧 | - |
-| 113 | vCenter 管理 | `list_recent_tasks` | 最近のタスク一覧 | - |
-| 114 | vCenter 管理 | `terminate_session` | セッション強制終了 | 高 |
-| 115 | クラスタ設定 | `get_cluster_ha_config` | HA 設定取得 | - |
-| 116 | クラスタ設定 | `get_cluster_drs_config` | DRS 設定取得 | - |
-| 117 | クラスタ設定 | `list_drs_rules` | DRS アフィニティルール一覧 | - |
-| 118 | クラスタ設定 | `get_cluster_drs_recommendations` | DRS レコメンデーション取得 | - |
-| 119 | クラスタ設定 | `create_resource_pool` | リソースプール作成 | 高 |
-| 120 | クラスタ設定 | `update_resource_pool` | リソースプール更新 | 高 |
-| 121 | クラスタ設定 | `delete_resource_pool` | リソースプール削除 | 高 |
-| 122 | クラスタ設定 | `list_cluster_host_vm_groups` | DRS ホスト/VM グループ一覧 | - |
-| 123 | フォルダ | `list_folders` | フォルダ一覧（パス付き） | - |
-| 124 | フォルダ | `create_folder` | フォルダ作成 | 中 |
-| 125 | フォルダ | `move_vm_to_folder` | VM をフォルダに移動 | 中 |
-| 126 | DS ブラウザ | `browse_datastore` | データストアファイル参照 | - |
-| 127 | DS ブラウザ | `delete_datastore_file` | データストアファイル削除 | 重大 |
+| 79 | ネットワーク | `create_dvswitch` | 分散仮想スイッチ作成 | 高 |
+| 80 | ネットワーク | `create_dvportgroup` | 分散ポートグループ作成 | 高 |
+| 81 | ネットワーク | `add_host_portgroup` | 標準ポートグループ追加 | 高 |
+| 82 | ネットワーク | `remove_host_portgroup` | 標準ポートグループ削除 | 高 |
+| 83 | パフォーマンス | `get_vm_performance` | VM パフォーマンスメトリクス | - |
+| 84 | パフォーマンス | `get_host_performance` | ホストパフォーマンスメトリクス | - |
+| 85 | イベント | `list_recent_events` | vCenter イベント一覧 | - |
+| 86 | イベント | `list_alarms` | トリガー済みアラーム一覧 | - |
+| 87 | イベント | `list_performance_counters` | パフォーマンスカウンタ一覧 | - |
+| 88 | イベント | `get_alarm_definitions` | アラーム定義一覧 | - |
+| 89 | イベント | `get_host_system_log` | ESXi ホスト診断ログ取得 | - |
+| 90 | イベント | `list_diagnostic_log_keys` | 診断ログキー一覧 | - |
+| 91 | ストレージ | `get_datastore_info` | データストア詳細情報 | - |
+| 92 | ストレージ | `get_storage_summary` | ストレージ全体サマリー | - |
+| 93 | ストレージ | `list_host_storage_devices` | ホスト SCSI LUN/HBA 一覧 | - |
+| 94 | ストレージ | `list_host_multipath_info` | ホストマルチパス情報一覧 | - |
+| 95 | ストレージ | `rescan_host_storage` | ホストストレージ再スキャン | 中 |
+| 96 | バッチ | `batch_power_operation` | 複数 VM 一括電源操作 | 高 |
+| 97 | バッチ | `batch_create_snapshots` | 複数 VM 一括スナップショット | 高 |
+| 98 | バッチ | `batch_get_vm_info` | 複数 VM 一括情報取得 | - |
+| 99 | ゲスト | `execute_guest_command` | ゲスト OS コマンド実行 | 高 |
+| 100 | ゲスト | `list_guest_processes` | ゲスト OS プロセス一覧 | - |
+| 101 | タグ | `get_vm_annotation` | VM アノテーション取得 | - |
+| 102 | タグ | `set_vm_annotation` | VM アノテーション設定 | 低 |
+| 103 | タグ | `get_custom_attributes` | カスタム属性定義一覧 | - |
+| 104 | タグ | `create_custom_attribute` | カスタム属性定義作成 | 中 |
+| 105 | タグ | `set_custom_attribute_value` | カスタム属性値設定 | 低 |
+| 106 | タグ | `get_entity_custom_attribute_values` | エンティティのカスタム属性値取得 | - |
+| 107 | 詳細設定 | `get_esxi_advanced_settings` | ESXi 詳細設定取得 | - |
+| 108 | 詳細設定 | `set_esxi_advanced_setting` | ESXi 詳細設定変更 | 高 |
+| 109 | 詳細設定 | `get_vcenter_advanced_settings` | vCenter 詳細設定取得 | - |
+| 110 | 詳細設定 | `set_vcenter_advanced_setting` | vCenter 詳細設定変更 | 高 |
+| 111 | vCenter 管理 | `list_roles` | vCenter ロール一覧 | - |
+| 112 | vCenter 管理 | `get_entity_permissions` | エンティティ権限取得 | - |
+| 113 | vCenter 管理 | `get_license_info` | ライセンス情報（キーマスク済み） | - |
+| 114 | vCenter 管理 | `list_active_sessions` | アクティブセッション一覧 | - |
+| 115 | vCenter 管理 | `list_recent_tasks` | 最近のタスク一覧 | - |
+| 116 | vCenter 管理 | `terminate_session` | セッション強制終了 | 高 |
+| 117 | クラスタ設定 | `get_cluster_ha_config` | HA 設定取得 | - |
+| 118 | クラスタ設定 | `get_cluster_drs_config` | DRS 設定取得 | - |
+| 119 | クラスタ設定 | `list_drs_rules` | DRS アフィニティルール一覧 | - |
+| 120 | クラスタ設定 | `get_cluster_drs_recommendations` | DRS レコメンデーション取得 | - |
+| 121 | クラスタ設定 | `create_resource_pool` | リソースプール作成 | 高 |
+| 122 | クラスタ設定 | `update_resource_pool` | リソースプール更新 | 高 |
+| 123 | クラスタ設定 | `delete_resource_pool` | リソースプール削除 | 高 |
+| 124 | クラスタ設定 | `list_cluster_host_vm_groups` | DRS ホスト/VM グループ一覧 | - |
+| 125 | ���ォルダ | `list_folders` | フォルダ一覧（パス付き） | - |
+| 126 | フォルダ | `create_folder` | フォルダ作成 | 中 |
+| 127 | フォルダ | `move_vm_to_folder` | VM をフォルダに移動 | 中 |
+| 128 | DS ブラウザ | `browse_datastore` | データストアファイル参照 | - |
+| 129 | DS ブラウザ | `delete_datastore_file` | データストアファイル削除 | 重大 |
+| 130 | 電源 | `suspend_vm` | VM サスペンド | 中 |
+| 131 | 電源 | `reset_vm` | VM ハードリセット | 高 |
+| 132 | スナップショット | `remove_all_snapshots` | 全スナップショット削除 | 高 |
+| 133 | スナップショット | `rename_snapshot` | スナップショットリネーム | 中 |
+| 134 | スナップショット | `revert_to_current_snapshot` | 現在のスナップショットに復元 | 高 |
+| 135 | マイグレーション | `storage_vmotion` | Storage vMotion（ディスク移行） | 高 |
+| 136 | マイグレーション | `relocate_vm` | VM 再配置（コンピュート+ストレージ） | 高 |
+| 137 | リソース | `add_vm_cd_drive` | VM CD/DVD ドライブ追加 | 中 |
+| 138 | VM デバイス | `change_vm_nic_network` | VM NIC ネットワーク変更 | 中 |
+| 139 | VM デバイス | `connect_disconnect_vm_nic` | VM NIC 接続/切断 | 中 |
+| 140 | VM デバイス | `add_vm_scsi_controller` | SCSI コントローラ追加 | 中 |
+| 141 | VM デバイス | `upgrade_vm_hardware` | VM ハードウェアアップグレード | 高 |
+| 142 | VM デバイス | `set_vm_cpu_hotadd` | CPU ホットアド有効/無効 | 中 |
+| 143 | VM デバイス | `set_vm_cores_per_socket` | ソケットあたりコア数設定 | 中 |
+| 144 | VM デバイス | `change_vm_disk_mode` | VM ディスクモード変更 | 高 |
+| 145 | ホスト管理 | `add_host_to_cluster` | クラスタにホスト追加 | 高 |
+| 146 | ホスト管理 | `remove_host` | ホスト削除 | 重大 |
+| 147 | ホスト管理 | `move_host_to_cluster` | ホストを別クラスタに移動 | 高 |
+| 148 | ホスト設定 | `create_vswitch` | 標準 vSwitch 作成 | 高 |
+| 149 | ホスト設定 | `remove_vswitch` | 標準 vSwitch 削除 | 高 |
+| 150 | ホスト設定 | `update_vswitch` | 標準 vSwitch 更新 | 高 |
+| 151 | ホスト設定 | `add_vmkernel_adapter` | VMkernel アダプタ追加 | 高 |
+| 152 | ホスト設定 | `remove_vmkernel_adapter` | VMkernel アダプタ削除 | 高 |
+| 153 | ホスト設定 | `set_host_dns_config` | ESXi DNS 設定変更 | 高 |
+| 154 | ホスト設定 | `set_host_ntp_servers` | ESXi NTP サーバー設定 | 高 |
+| 155 | ホスト設定 | `set_host_syslog_target` | ESXi syslog 送信先設定 | 高 |
+| 156 | ホスト設定 | `set_host_lockdown_mode` | ESXi ロックダウンモード設定 | 重大 |
+| 157 | ホスト設定 | `enable_host_firewall_ruleset` | ファイアウォールルールセット有効化 | 高 |
+| 158 | ホスト設定 | `disable_host_firewall_ruleset` | ファイアウォールルールセット無効化 | 高 |
+| 159 | ホスト設定 | `set_host_service_policy` | ESXi サービスポリシー設定 | 高 |
+| 160 | ホスト設定 | `sync_host_time` | ESXi ホスト時刻同期 | 中 |
+| 161 | ホスト設定 | `refresh_host_ca_certificates` | ESXi SSL 証明書更新 | 高 |
+| 162 | ネットワーク | `delete_dvswitch` | 分散仮想スイッチ削除 | 重大 |
+| 163 | ネットワーク | `delete_dvportgroup` | 分散ポートグループ削除 | 重大 |
+| 164 | ネットワーク | `update_dvportgroup` | 分散ポートグループ設定更新 | 高 |
+| 165 | ネットワーク | `update_dvswitch` | 分散仮想スイッチ設定更新 | 高 |
+| 166 | イベント | `get_vcenter_log` | vCenter ログ取得 | - |
+| 167 | イベント | `list_vcenter_log_keys` | vCenter ログキー一覧 | - |
+| 168 | ストレージ | `mount_nfs_datastore` | NFS データストアマウント | 高 |
+| 169 | ストレージ | `unmount_datastore` | データストアアンマウント | 重大 |
+| 170 | ストレージ | `rename_datastore` | データストアリネーム | 中 |
+| 171 | ストレージ | `refresh_datastore` | データストアリフレッシュ | - |
+| 172 | ストレージ | `enter_datastore_maintenance_mode` | データストアメンテナンスモード開始 | 高 |
+| 173 | ストレージ | `exit_datastore_maintenance_mode` | データストアメンテナンスモード解除 | 高 |
+| 174 | ストレージ | `set_multipath_policy` | マルチパスポリシー設定 | 高 |
+| 175 | ストレージ | `list_datastore_hosts` | データストア接続ホスト一覧 | - |
+| 176 | ゲスト | `list_guest_files` | ゲスト OS ファイル一覧 | - |
+| 177 | ゲスト | `create_guest_directory` | ゲスト OS ディレクトリ作成 | 中 |
+| 178 | ゲスト | `delete_guest_file` | ゲスト OS ファイル削除 | 高 |
+| 179 | ゲスト | `terminate_guest_process` | ゲスト OS プロセス終了 | 高 |
+| 180 | ゲスト | `upgrade_vmware_tools` | VMware Tools アップグレード | 中 |
+| 181 | ゲスト | `read_guest_environment_variables` | ゲスト OS 環境変数取得 | - |
+| 182 | vCenter 管理 | `create_role` | ロール作成 | 高 |
+| 183 | vCenter 管理 | `update_role` | ロール更新 | 高 |
+| 184 | vCenter 管理 | `delete_role` | ロール削除 | 高 |
+| 185 | vCenter 管理 | `set_entity_permissions` | エンティティ権限設定 | 高 |
+| 186 | vCenter 管理 | `remove_entity_permission` | エンティティ権限削除 | 高 |
+| 187 | vCenter 管理 | `cancel_task` | タスクキャンセル | 中 |
+| 188 | vCenter 管理 | `list_privileges` | 権限一覧 | - |
+| 189 | vCenter 管理 | `acknowledge_alarm` | アラーム確認応答 | 低 |
+| 190 | クラスタ設定 | `configure_cluster_ha` | クラスタ HA 設定変更 | 高 |
+| 191 | クラスタ設定 | `configure_cluster_drs` | クラスタ DRS 設定変更 | 高 |
+| 192 | クラスタ設定 | `create_drs_rule` | DRS アフィニティルール作成 | 高 |
+| 193 | クラスタ設定 | `delete_drs_rule` | DRS アフィニティルール削除 | 高 |
+| 194 | クラスタ設定 | `apply_drs_recommendation` | DRS レコメンデーション適用 | 高 |
+| 195 | クラスタ設定 | `create_cluster` | クラスタ作成 | 高 |
+| 196 | クラスタ設定 | `delete_cluster` | クラスタ削除 | 重大 |
+| 197 | クラスタ設定 | `create_drs_vm_group` | DRS VM グループ作成 | 高 |
+| 198 | クラスタ設定 | `create_drs_host_group` | DRS ホストグループ作成 | 高 |
+| 199 | フォルダ | `delete_folder` | フォルダ削除 | 高 |
+| 200 | フォルダ | `rename_folder` | フォルダリネーム | 中 |
+| 201 | フォルダ | `move_entity_to_folder` | エンティティをフォルダに移動 | 高 |
+| 202 | DS ブラウザ | `copy_datastore_file` | データストアファイルコピー | 高 |
+| 203 | DS ブラウザ | `move_datastore_file` | データストアファイル移動 | 高 |
+| 204 | DS ブラウザ | `create_datastore_directory` | データストアディレクトリ作成 | 中 |
 
 ### リスクレベル別サマリー
 
 | リスクレベル | 件数 | 説明 |
 |-------------|------|------|
-| - (読み取り専用) | 72 | 確認不要。情報取得のみ |
-| 低 | 4 | 軽微な変更。確認必須 |
-| 中 | 18 | 元に戻せる操作。確認必須 |
-| 高 | 28 | 重大な影響の可能性。確認必須 |
-| 重大 | 5 | 不可逆操作。確認必須 |
+| - (読み取り専用) | 79 | 確認不要。情報取得のみ |
+| 低 | 5 | 軽微な変更。確認必須 |
+| 中 | 33 | 元に戻せる操作。確認必須 |
+| 高 | 76 | 重大な影響の可能性。確認必須 |
+| 重大 | 11 | 不可逆操作。確認必須 |
 
 ## [0.1.0] - 2025-05-04
 

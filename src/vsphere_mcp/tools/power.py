@@ -52,12 +52,18 @@ def register_power_tools(mcp: Any, client: VSphereClient) -> None:
     def shutdown_vm(vm_name: str) -> dict[str, Any]:
         """Gracefully shut down a virtual machine via VMware Tools guest OS shutdown."""
         logger.info("shutdown_vm", vm_name=vm_name)
-        found = find_vm_with_props(client, vm_name)
+        found = find_vm_with_props(client, vm_name, ["guest.toolsRunningStatus"])
         if found is None:
             return {"status": "error", "error": f"VM '{vm_name}' not found"}
         power_state = found.get("runtime.powerState")
         if str(power_state) == "poweredOff":
             return {"status": "already_powered_off", "vm_name": vm_name}
+        tools_status = found.get("guest.toolsRunningStatus", "")
+        if str(tools_status) != "guestToolsRunning":
+            return {
+                "status": "error",
+                "error": f"VMware Tools is not running on VM '{vm_name}'. Use power_off_vm for a hard shutdown.",
+            }
         found["_obj"].ShutdownGuest()
         return {"status": "shutdown_initiated", "vm_name": vm_name, "operation": "shutdown"}
 
@@ -67,11 +73,53 @@ def register_power_tools(mcp: Any, client: VSphereClient) -> None:
     def reboot_vm(vm_name: str) -> dict[str, Any]:
         """Reboot a virtual machine via VMware Tools guest OS reboot."""
         logger.info("reboot_vm", vm_name=vm_name)
+        found = find_vm_with_props(client, vm_name, ["guest.toolsRunningStatus"])
+        if found is None:
+            return {"status": "error", "error": f"VM '{vm_name}' not found"}
+        power_state = found.get("runtime.powerState")
+        if str(power_state) != "poweredOn":
+            return {"status": "error", "error": f"VM '{vm_name}' is not powered on"}
+        tools_status = found.get("guest.toolsRunningStatus", "")
+        if str(tools_status) != "guestToolsRunning":
+            return {
+                "status": "error",
+                "error": f"VMware Tools is not running on VM '{vm_name}'. Use reset_vm for a hard reboot.",
+            }
+        found["_obj"].RebootGuest()
+        return {"status": "reboot_initiated", "vm_name": vm_name, "operation": "reboot"}
+
+    @mcp.tool()
+    @handle_tool_errors
+    @require_confirm(danger_level="medium")
+    def suspend_vm(vm_name: str) -> dict[str, Any]:
+        """Suspend (hibernate) a running virtual machine."""
+        logger.info("suspend_vm", vm_name=vm_name)
         found = find_vm_with_props(client, vm_name)
         if found is None:
             return {"status": "error", "error": f"VM '{vm_name}' not found"}
         power_state = found.get("runtime.powerState")
         if str(power_state) != "poweredOn":
             return {"status": "error", "error": f"VM '{vm_name}' is not powered on"}
-        found["_obj"].RebootGuest()
-        return {"status": "reboot_initiated", "vm_name": vm_name, "operation": "reboot"}
+        task = found["_obj"].Suspend()
+        result = wait_for_task(task)
+        result["vm_name"] = vm_name
+        result["operation"] = "suspend_vm"
+        return result
+
+    @mcp.tool()
+    @handle_tool_errors
+    @require_confirm(danger_level="high")
+    def reset_vm(vm_name: str) -> dict[str, Any]:
+        """Hard reset a virtual machine (no graceful shutdown)."""
+        logger.info("reset_vm", vm_name=vm_name)
+        found = find_vm_with_props(client, vm_name)
+        if found is None:
+            return {"status": "error", "error": f"VM '{vm_name}' not found"}
+        power_state = found.get("runtime.powerState")
+        if str(power_state) != "poweredOn":
+            return {"status": "error", "error": f"VM '{vm_name}' is not powered on"}
+        task = found["_obj"].Reset()
+        result = wait_for_task(task)
+        result["vm_name"] = vm_name
+        result["operation"] = "reset_vm"
+        return result

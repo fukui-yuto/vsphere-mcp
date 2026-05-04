@@ -8,67 +8,40 @@ VMware vSphere / vCenter を AI コーディングツール（Claude Code、GitH
 
 > **注意**: 開発・テストはすべて [vcsim](https://github.com/vmware/govmomi/tree/main/vcsim)（vCenter Server Simulator）上で実施しています。商用 vSphere 環境への影響はありません。
 
-## 機能一覧
+## 機能一覧（全 204 ツール）
 
-### 情報取得ツール（28 個・読み取り専用・confirm 不要）
+> 全ツールの詳細は [docs/TOOLS.md](docs/TOOLS.md) を参照してください。
 
-| ツール名 | 概要 |
-|---|---|
-| `test_connection` | vSphere 接続テスト・サーバー情報取得 |
-| `list_vms` | VM 一覧取得（ホスト/クラスターフィルター、ページネーション対応） |
-| `get_vm_info` | VM 詳細情報取得（CPU、メモリ、ディスク、NIC、ストレージ、VMware Tools） |
-| `list_hosts` | ESXi ホスト一覧取得（クラスターフィルター） |
-| `get_host_info` | ESXi ホスト詳細情報取得 |
-| `list_datacenters` | データセンター一覧取得 |
-| `list_clusters` | クラスター一覧取得（データセンターフィルター） |
-| `list_datastores` | データストア一覧取得（容量/使用量付き） |
-| `list_networks` | ネットワーク（ポートグループ）一覧取得 |
-| `list_snapshots` | VM スナップショット一覧取得（ツリー構造） |
-| `get_cluster_health` | クラスター健全性サマリー（ホスト詳細付き） |
-| `search_vms` | VM 名で検索（大文字小文字区別なし） |
-| `list_resource_pools` | リソースプール一覧取得（CPU/メモリ割り当て） |
-| `list_distributed_switches` | 分散仮想スイッチ一覧取得 |
-| `list_distributed_portgroups` | 分散ポートグループ一覧取得 |
-| `get_vm_performance` | VM パフォーマンスメトリクス取得 |
-| `get_host_performance` | ホストパフォーマンスメトリクス取得 |
-| `list_recent_events` | vCenter イベント一覧取得 |
-| `list_alarms` | トリガー済みアラーム一覧取得 |
-| `get_datastore_info` | データストア詳細情報取得 |
-| `get_storage_summary` | ストレージ全体サマリー取得 |
-| `list_guest_processes` | ゲスト OS プロセス一覧取得 |
-| `get_vm_annotation` | VM アノテーション取得 |
-| `get_custom_attributes` | カスタム属性定義一覧取得 |
-| `get_esxi_advanced_settings` | ESXi 詳細設定取得 |
-| `get_vcenter_advanced_settings` | vCenter 詳細設定取得 |
+### カテゴリ別サマリー
 
-### 操作ツール（22 個・confirm 必須）
+| カテゴリ | モジュール | 読み取り | 操作 | 合計 |
+|---|---|---|---|---|
+| インベントリ | `inventory.py` | 16 | - | 16 |
+| 電源操作 | `power.py` | - | 6 | 6 |
+| スナップショット | `snapshot.py` | - | 6 | 6 |
+| マイグレーション | `migration.py` | - | 3 | 3 |
+| ライフサイクル | `lifecycle.py` | 1 | 7 | 8 |
+| リソース | `resources.py` | - | 4 | 4 |
+| VM デバイス | `vm_devices.py` | 7 | 16 | 23 |
+| ホスト管理 | `host.py` | - | 9 | 9 |
+| ホスト設定 | `host_config.py` | 15 | 18 | 33 |
+| ネットワ���ク | `networking.py` | 2 | 8 | 10 |
+| パフォーマンス | `performance.py` | 2 | - | 2 |
+| イベント・監視 | `events.py` | 8 | - | 8 |
+| ストレージ | `storage.py` | 6 | 7 | 13 |
+| バッチ操作 | `batch.py` | 1 | 2 | 3 |
+| ゲスト操作 | `guest.py` | 3 | 5 | 8 |
+| タグ・属性 | `tags.py` | 3 | 3 | 6 |
+| 詳細設定 | `advanced_settings.py` | 2 | 2 | 4 |
+| vCenter 管理 | `vcenter_admin.py` | 6 | 8 | 14 |
+| クラスタ設定 | `cluster_config.py` | 5 | 12 | 17 |
+| フォルダ | `folders.py` | 1 | 5 | 6 |
+| DS ブラウザ | `datastore_browser.py` | 1 | 4 | 5 |
+| **合計** | | **79** | **125** | **204** |
+
+### 操作ツール（125 個・confirm 必須）
 
 すべての操作ツールは `confirm=True` を指定しない限り実行されず、確認プロンプトを返します。
-
-| ツール名 | 概要 | 危険度 |
-|---|---|---|
-| `power_on_vm` | VM 起動 | 低 |
-| `power_off_vm` | VM 強制電源 OFF | 中 |
-| `shutdown_vm` | ゲスト OS シャットダウン | 中 |
-| `reboot_vm` | ゲスト OS 再起動 | 中 |
-| `create_snapshot` | スナップショット作成 | 中 |
-| `set_vm_resources` | CPU/メモリ変更 | 中 |
-| `add_disk` | ディスク追加 | 中 |
-| `add_nic` | NIC 追加 | 中 |
-| `set_vm_annotation` | VM アノテーション設定 | 低 |
-| `revert_snapshot` | スナップショット復元 | 高 |
-| `remove_snapshot` | スナップショット削除 | 高 |
-| `migrate_vm` | vMotion（ホスト間移行） | 高 |
-| `clone_vm` | VM クローン作成 | 高 |
-| `deploy_from_template` | テンプレートから VM 展開 | 高 |
-| `enter_maintenance_mode` | ESXi メンテナンスモード開始 | 高 |
-| `exit_maintenance_mode` | ESXi メンテナンスモード終了 | 高 |
-| `batch_power_operation` | 複数 VM の一括電源操作 | 高 |
-| `batch_create_snapshots` | 複数 VM の一括スナップショット作成 | 高 |
-| `execute_guest_command` | ゲスト OS コマンド実行 | 高 |
-| `set_esxi_advanced_setting` | ESXi 詳細設定変更 | 高 |
-| `set_vcenter_advanced_setting` | vCenter 詳細設定変更 | 高 |
-| `delete_vm` | VM 完全削除 | **最高** |
 
 ## クイックスタート
 
@@ -317,7 +290,7 @@ power_off_vm(vm_name="web-01", confirm=True)
 | **低** | 容易に取り消し可能 | VM 起動、アノテーション設定 |
 | **中** | 一時的な影響あり | 電源 OFF、シャットダウン、再起動、スナップショット作成、リソース変更 |
 | **高** | 大きな影響・取り消し困難 | スナップショット復元/削除、vMotion、クローン、テンプレート展開、メンテナンスモード、一括操作、ゲストコマンド実行、詳細設定変更 |
-| **最高** | 永久的なデータ損失の可能性 | VM 削除 |
+| **重大** | 永久的なデータ損失の可能性 | VM 削除、ホストシャットダウン/切断、データストアファイル削除 |
 
 ### ログ
 
@@ -374,20 +347,27 @@ vsphere-mcp/
     py.typed                      # 型情報マーカー
     tools/
       _base.py                    # require_confirm / handle_tool_errors デコレータ
-      inventory.py                # 情報取得ツール（15 個）
-      power.py                    # 電源操作（4 個）
-      snapshot.py                 # スナップショット管理（3 個）
-      migration.py                # vMotion（1 個）
-      lifecycle.py                # VM クローン/展開/削除（3 個）
-      resources.py                # リソース変更: CPU/メモリ/ディスク/NIC（3 個）
-      host.py                     # ホストメンテナンスモード（2 個）
+      inventory.py                # インベントリ情報取得（16 個）
+      power.py                    # 電源操作（6 個）
+      snapshot.py                 # スナップショット管理（6 個）
+      migration.py                # vMotion / Storage vMotion（3 個）
+      lifecycle.py                # VM ライフサイクル（8 個）
+      resources.py                # リソース変更: CPU/メモリ/ディスク/NIC/CD（4 個）
+      vm_devices.py               # VM デバイス管理（23 個）
+      host.py                     # ホスト管理（9 個）
+      host_config.py              # ホスト設定（33 個）
+      networking.py               # ネットワーク設定��6 個）
       performance.py              # パフォーマンスメトリクス（2 個）
-      events.py                   # イベント・アラーム（2 個）
-      storage.py                  # ストレージ詳細（2 個）
-      batch.py                    # 一括操作（2 個）
-      guest.py                    # ゲスト OS 操作（2 個）
-      tags.py                     # アノテーション・カスタム属性（3 個）
+      events.py                   # イベント・監視（8 個）
+      storage.py                  # ストレージ（13 個）
+      batch.py                    # バッチ操作（3 個）
+      guest.py                    # ゲスト OS 操作（8 個）
+      tags.py                     # タグ・属性（6 個）
       advanced_settings.py        # 詳細設定（4 個）
+      vcenter_admin.py            # vCenter 管理（14 個）
+      cluster_config.py           # クラスタ設定（17 個）
+      folders.py                  # フォルダ管理（6 個）
+      datastore_browser.py        # データストアブラウザ（5 個）
     utils/
       property_collector.py       # PropertyCollector による効率的プロパティ取得
   tests/                          # vcsim 対象の統合テスト
@@ -397,6 +377,7 @@ vsphere-mcp/
     CONTRIBUTING.md               # コントリビュートガイド
     SECURITY.md                   # セキュリティポリシー
     CHANGELOG.md                  # 変更履歴
+    TOOLS.md                      # 全 204 ツール詳細一覧
   .github/
     workflows/ci.yml              # GitHub Actions CI
     dependabot.yml                # Dependabot 設定（pip / GitHub Actions）

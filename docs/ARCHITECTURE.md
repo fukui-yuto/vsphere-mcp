@@ -79,21 +79,28 @@ def some_tool(...):
 
 | モジュール | ツール数 | 概要 |
 |---|---|---|
-| `inventory.py` | 15 | 読み取り専用ツール（list/get/search + test_connection）、ページネーション対応 |
-| `power.py` | 4 | 電源操作（on/off/shutdown/reboot） |
-| `snapshot.py` | 3 | スナップショット（create/revert/remove） |
-| `migration.py` | 1 | vMotion |
-| `lifecycle.py` | 3 | VM 削除/クローン/テンプレート展開 |
-| `resources.py` | 3 | CPU/メモリ変更、ディスク追加、NIC 追加 |
-| `host.py` | 2 | ESXi メンテナンスモード（enter/exit） |
+| `inventory.py` | 16 | 読み取り専用ツール（list/get/search + test_connection）、ページネーション対応 |
+| `power.py` | 6 | 電源操作（on/off/shutdown/reboot/suspend/reset） |
+| `snapshot.py` | 6 | スナップショット（create/revert/remove/remove_all/rename/revert_current） |
+| `migration.py` | 3 | vMotion / Storage vMotion / Relocate |
+| `lifecycle.py` | 8 | VM 作成/クローン/テンプレート展開・変換/削除/登録、ゲスト OS タイプ一覧 |
+| `resources.py` | 4 | CPU/メモリ変更、ディスク追加、NIC 追加、CD/DVDドライブ追加 |
+| `vm_devices.py` | 23 | ディスク削除/拡張、NIC 削除、コントローラ一覧、extraConfig、リネーム、ブートオプション、CD/DVD、ビデオカード等 |
+| `host.py` | 9 | メンテナンスモード（enter/exit）、シャットダウン、リブート、切断/再接続 |
+| `host_config.py` | 33 | vSwitch/VMkernel/ポートグループ/物理NIC一覧、サービス管理、ファイアウォール、DNS/NTP/ルーティング、ハードウェアヘルス、SSH、syslog、電源ポリシー、ロックダウン、証明書、時刻 |
+| `networking.py` | 10 | 分散スイッチ/ポートグル��プ詳細設定取得・作成、標準ポー���グループ追加/削除 |
 | `performance.py` | 2 | VM/ホストパフォーマンスメトリクス |
-| `events.py` | 2 | イベント一覧、アラーム一覧 |
-| `storage.py` | 2 | データストア詳細、ストレージサマリー |
-| `batch.py` | 2 | 一括電源操作、一括スナップショット作成 |
-| `guest.py` | 2 | ゲスト OS プロセス一覧、ゲストコマンド実行 |
-| `tags.py` | 3 | アノテーション取得/設定、カスタム属性定義一覧 |
+| `events.py` | 8 | イベント一覧、アラーム一覧/定義、パフォーマンスカウンタ一覧、診断ログ取得/キー一覧 |
+| `storage.py` | 13 | データストア詳細、ストレージサマリー、ストレージデバイス/マルチパス一覧、再スキャン |
+| `batch.py` | 3 | 一括電源操作、一括スナップショット作成、一括 VM 情報取得 |
+| `guest.py` | 8 | ゲスト OS プロセス一覧、ゲストコマンド実行 |
+| `tags.py` | 6 | アノテーション取得/設定、カスタム属性定義一覧/作成、カスタム属性値設定/取得 |
 | `advanced_settings.py` | 4 | ESXi/vCenter 詳細設定の取得・変更 |
-| **合計** | **48** | |
+| `vcenter_admin.py` | 14 | ロール一覧、権限取得、ライセンス情報、セッション一覧/終了、タスク一覧 |
+| `cluster_config.py` | 17 | HA/DRS 設定取得、DRS ルール/レコメンデーション、リソースプール作成/更新/削除、ホスト/VM グループ一覧 |
+| `folders.py` | 6 | フォルダ一覧、フォルダ作成、VM フォルダ移動 |
+| `datastore_browser.py` | 5 | データストアファイル参照、データストアファイル削除 |
+| **���計** | **204** | |
 
 ## 設計判断
 

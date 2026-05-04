@@ -259,3 +259,331 @@ def register_vcenter_admin_tools(mcp: Any, client: VSphereClient) -> None:
             "session_key": session_key,
             "operation": "terminate_session",
         }
+
+    @mcp.tool()
+    @handle_tool_errors
+    @require_confirm(danger_level="high")
+    def create_role(
+        role_name: str,
+        privilege_ids: list[str],
+    ) -> dict[str, Any]:
+        """Create a new authorization role in vCenter.
+
+        Args:
+            role_name: Name for the new role.
+            privilege_ids: List of privilege IDs to assign to the role.
+        """
+        logger.info("create_role", role_name=role_name)
+        content = client.content
+        auth_mgr = content.authorizationManager
+        new_role_id = auth_mgr.AddAuthorizationRole(name=role_name, privIds=privilege_ids)
+        return {
+            "status": "success",
+            "operation": "create_role",
+            "role_name": role_name,
+            "role_id": new_role_id,
+        }
+
+    @mcp.tool()
+    @handle_tool_errors
+    @require_confirm(danger_level="high")
+    def update_role(
+        role_name: str,
+        privilege_ids: list[str],
+    ) -> dict[str, Any]:
+        """Update an existing authorization role's privileges in vCenter.
+
+        Args:
+            role_name: Name of the role to update.
+            privilege_ids: New list of privilege IDs to assign to the role.
+        """
+        logger.info("update_role", role_name=role_name)
+        content = client.content
+        auth_mgr = content.authorizationManager
+        role = None
+        for r in auth_mgr.roleList or []:
+            if r.name == role_name:
+                role = r
+                break
+        if role is None:
+            return {"status": "error", "error": f"Role '{role_name}' not found"}
+        auth_mgr.UpdateAuthorizationRole(roleId=role.roleId, newName=role_name, privIds=privilege_ids)
+        return {
+            "status": "success",
+            "operation": "update_role",
+            "role_name": role_name,
+            "role_id": role.roleId,
+        }
+
+    @mcp.tool()
+    @handle_tool_errors
+    @require_confirm(danger_level="high")
+    def delete_role(
+        role_name: str,
+        fail_if_used: bool = True,
+    ) -> dict[str, Any]:
+        """Delete an authorization role from vCenter.
+
+        Args:
+            role_name: Name of the role to delete.
+            fail_if_used: If True, fail if the role is currently assigned to any entity (default True).
+        """
+        logger.info("delete_role", role_name=role_name, fail_if_used=fail_if_used)
+        content = client.content
+        auth_mgr = content.authorizationManager
+        role = None
+        for r in auth_mgr.roleList or []:
+            if r.name == role_name:
+                role = r
+                break
+        if role is None:
+            return {"status": "error", "error": f"Role '{role_name}' not found"}
+        auth_mgr.RemoveAuthorizationRole(roleId=role.roleId, failIfUsed=fail_if_used)
+        return {
+            "status": "success",
+            "operation": "delete_role",
+            "role_name": role_name,
+            "role_id": role.roleId,
+        }
+
+    @mcp.tool()
+    @handle_tool_errors
+    @require_confirm(danger_level="high")
+    def set_entity_permissions(
+        entity_type: str,
+        entity_name: str,
+        principal: str,
+        role_name: str,
+        propagate: bool = True,
+        is_group: bool = False,
+    ) -> dict[str, Any]:
+        """Set permissions on a vSphere entity for a user or group.
+
+        Args:
+            entity_type: Entity type (Datacenter/ClusterComputeResource/HostSystem/VirtualMachine/Folder/Datastore).
+            entity_name: Name of the entity.
+            principal: User or group name (e.g. 'DOMAIN\\user').
+            role_name: Name of the role to assign.
+            propagate: Whether to propagate permission to child objects (default True).
+            is_group: Whether the principal is a group (default False).
+        """
+        logger.info(
+            "set_entity_permissions",
+            entity_type=entity_type,
+            entity_name=entity_name,
+            principal=principal,
+            role_name=role_name,
+        )
+        entity_type_map: dict[str, type] = {
+            "Datacenter": vim.Datacenter,
+            "ClusterComputeResource": vim.ClusterComputeResource,
+            "HostSystem": vim.HostSystem,
+            "VirtualMachine": vim.VirtualMachine,
+            "Folder": vim.Folder,
+            "Datastore": vim.Datastore,
+        }
+        vim_type = entity_type_map.get(entity_type)
+        if vim_type is None:
+            return {
+                "status": "error",
+                "error": f"Unknown entity_type '{entity_type}'. Valid types: {', '.join(entity_type_map.keys())}",
+            }
+        items = collect_properties(client, vim_type, ["name"])
+        entity_obj = None
+        for item in items:
+            if item.get("name") == entity_name:
+                entity_obj = item["_obj"]
+                break
+        if entity_obj is None:
+            return {"status": "error", "error": f"{entity_type} '{entity_name}' not found"}
+
+        content = client.content
+        auth_mgr = content.authorizationManager
+        role = None
+        for r in auth_mgr.roleList or []:
+            if r.name == role_name:
+                role = r
+                break
+        if role is None:
+            return {"status": "error", "error": f"Role '{role_name}' not found"}
+
+        new_perm = vim.AuthorizationManager.Permission(
+            principal=principal,
+            roleId=role.roleId,
+            propagate=propagate,
+            group=is_group,
+        )
+        existing_perms = auth_mgr.RetrieveEntityPermissions(entity=entity_obj, inherited=False) or []
+        all_perms = list(existing_perms) + [new_perm]
+        auth_mgr.SetEntityPermissions(entity=entity_obj, permission=all_perms)
+        return {
+            "status": "success",
+            "operation": "set_entity_permissions",
+            "entity_type": entity_type,
+            "entity_name": entity_name,
+            "principal": principal,
+            "role_name": role_name,
+            "propagate": propagate,
+            "is_group": is_group,
+        }
+
+    @mcp.tool()
+    @handle_tool_errors
+    @require_confirm(danger_level="high")
+    def remove_entity_permission(
+        entity_type: str,
+        entity_name: str,
+        principal: str,
+        is_group: bool = False,
+    ) -> dict[str, Any]:
+        """Remove a permission assignment from a vSphere entity.
+
+        Args:
+            entity_type: Entity type (Datacenter/ClusterComputeResource/HostSystem/VirtualMachine/Folder/Datastore).
+            entity_name: Name of the entity.
+            principal: User or group name whose permission to remove.
+            is_group: Whether the principal is a group (default False).
+        """
+        logger.info(
+            "remove_entity_permission",
+            entity_type=entity_type,
+            entity_name=entity_name,
+            principal=principal,
+        )
+        entity_type_map: dict[str, type] = {
+            "Datacenter": vim.Datacenter,
+            "ClusterComputeResource": vim.ClusterComputeResource,
+            "HostSystem": vim.HostSystem,
+            "VirtualMachine": vim.VirtualMachine,
+            "Folder": vim.Folder,
+            "Datastore": vim.Datastore,
+        }
+        vim_type = entity_type_map.get(entity_type)
+        if vim_type is None:
+            return {
+                "status": "error",
+                "error": f"Unknown entity_type '{entity_type}'. Valid types: {', '.join(entity_type_map.keys())}",
+            }
+        items = collect_properties(client, vim_type, ["name"])
+        entity_obj = None
+        for item in items:
+            if item.get("name") == entity_name:
+                entity_obj = item["_obj"]
+                break
+        if entity_obj is None:
+            return {"status": "error", "error": f"{entity_type} '{entity_name}' not found"}
+
+        content = client.content
+        auth_mgr = content.authorizationManager
+        auth_mgr.RemoveEntityPermission(entity=entity_obj, user=principal, isGroup=is_group)
+        return {
+            "status": "success",
+            "operation": "remove_entity_permission",
+            "entity_type": entity_type,
+            "entity_name": entity_name,
+            "principal": principal,
+            "is_group": is_group,
+        }
+
+    @mcp.tool()
+    @handle_tool_errors
+    @require_confirm(danger_level="medium")
+    def cancel_task(
+        task_key: str,
+    ) -> dict[str, Any]:
+        """Cancel a running or queued vCenter task.
+
+        Args:
+            task_key: The key of the task to cancel (from list_recent_tasks).
+        """
+        logger.info("cancel_task", task_key=task_key)
+        content = client.content
+        task_mgr = content.taskManager
+        task_obj = None
+        for task in task_mgr.recentTask or []:
+            if task.info.key == task_key:
+                task_obj = task
+                break
+        if task_obj is None:
+            return {"status": "error", "error": f"Task '{task_key}' not found in recent tasks"}
+        task_obj.CancelTask()
+        return {
+            "status": "success",
+            "operation": "cancel_task",
+            "task_key": task_key,
+        }
+
+    @mcp.tool()
+    @handle_tool_errors
+    def list_privileges() -> dict[str, Any]:
+        """List all available privileges defined in vCenter."""
+        logger.info("list_privileges")
+        content = client.content
+        auth_mgr = content.authorizationManager
+        privileges: list[dict[str, Any]] = []
+        for priv in auth_mgr.privilegeList or []:
+            privileges.append(
+                {
+                    "id": priv.privId,
+                    "name": priv.name if hasattr(priv, "name") else None,
+                    "group": priv.privGroupName if hasattr(priv, "privGroupName") else None,
+                }
+            )
+        return {"total": len(privileges), "privileges": privileges}
+
+    @mcp.tool()
+    @handle_tool_errors
+    @require_confirm(danger_level="low")
+    def acknowledge_alarm(
+        entity_type: str,
+        entity_name: str,
+    ) -> dict[str, Any]:
+        """Acknowledge all triggered alarms on a vSphere entity.
+
+        Args:
+            entity_type: Entity type (Datacenter/ClusterComputeResource/HostSystem/VirtualMachine/Folder/Datastore).
+            entity_name: Name of the entity whose alarms to acknowledge.
+        """
+        logger.info("acknowledge_alarm", entity_type=entity_type, entity_name=entity_name)
+        entity_type_map: dict[str, type] = {
+            "Datacenter": vim.Datacenter,
+            "ClusterComputeResource": vim.ClusterComputeResource,
+            "HostSystem": vim.HostSystem,
+            "VirtualMachine": vim.VirtualMachine,
+            "Folder": vim.Folder,
+            "Datastore": vim.Datastore,
+        }
+        vim_type = entity_type_map.get(entity_type)
+        if vim_type is None:
+            return {
+                "status": "error",
+                "error": f"Unknown entity_type '{entity_type}'. Valid types: {', '.join(entity_type_map.keys())}",
+            }
+        items = collect_properties(client, vim_type, ["name"])
+        entity_obj = None
+        for item in items:
+            if item.get("name") == entity_name:
+                entity_obj = item["_obj"]
+                break
+        if entity_obj is None:
+            return {"status": "error", "error": f"{entity_type} '{entity_name}' not found"}
+
+        content = client.content
+        alarm_mgr = content.alarmManager
+        triggered_alarms = getattr(entity_obj, "triggeredAlarmState", None) or []
+        acknowledged: list[str] = []
+        errors: list[str] = []
+        for alarm_state in triggered_alarms:
+            try:
+                alarm_mgr.AcknowledgeAlarm(alarm=alarm_state.alarm, entity=entity_obj)
+                acknowledged.append(str(alarm_state.alarm))
+            except Exception as exc:
+                errors.append(str(exc))
+        return {
+            "status": "success",
+            "operation": "acknowledge_alarm",
+            "entity_type": entity_type,
+            "entity_name": entity_name,
+            "acknowledged_count": len(acknowledged),
+            "errors": errors,
+        }

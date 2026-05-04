@@ -2,9 +2,12 @@ from __future__ import annotations
 
 from typing import Any
 
+from pyVmomi import vim
+
 from vsphere_mcp.client import VSphereClient
 from vsphere_mcp.logging import get_logger
 from vsphere_mcp.tools._base import find_host_by_name, handle_tool_errors, require_confirm, wait_for_task
+from vsphere_mcp.utils.property_collector import collect_properties
 
 logger = get_logger(__name__)
 
@@ -61,7 +64,7 @@ def register_host_tools(mcp: Any, client: VSphereClient) -> None:
                 "status": "error",
                 "error": f"Host '{host_name}' is not in maintenance mode. Set force=True to override.",
             }
-        task = host.Shutdown_Task(force=force)
+        task = host.ShutdownHost_Task(force=force)
         result = wait_for_task(task)
         result["host_name"] = host_name
         result["operation"] = "shutdown_host"
@@ -81,7 +84,7 @@ def register_host_tools(mcp: Any, client: VSphereClient) -> None:
                 "status": "error",
                 "error": f"Host '{host_name}' is not in maintenance mode. Set force=True to override.",
             }
-        task = host.Reboot_Task(force=force)
+        task = host.RebootHost_Task(force=force)
         result = wait_for_task(task)
         result["host_name"] = host_name
         result["operation"] = "reboot_host"
@@ -96,8 +99,11 @@ def register_host_tools(mcp: Any, client: VSphereClient) -> None:
         host = find_host_by_name(client, host_name)
         if host is None:
             return {"status": "error", "error": f"Host '{host_name}' not found"}
-        host.Disconnect()
-        return {"status": "success", "host_name": host_name, "operation": "disconnect_host"}
+        task = host.DisconnectHost_Task()
+        result = wait_for_task(task)
+        result["host_name"] = host_name
+        result["operation"] = "disconnect_host"
+        return result
 
     @mcp.tool()
     @handle_tool_errors
@@ -112,4 +118,80 @@ def register_host_tools(mcp: Any, client: VSphereClient) -> None:
         result = wait_for_task(task)
         result["host_name"] = host_name
         result["operation"] = "reconnect_host"
+        return result
+
+    @mcp.tool()
+    @handle_tool_errors
+    @require_confirm(danger_level="high")
+    def add_host_to_cluster(
+        cluster_name: str,
+        host_name_or_ip: str,
+        username: str,
+        password: str,
+        ssl_thumbprint: str | None = None,
+    ) -> dict[str, Any]:
+        """Add an ESXi host to a cluster in vCenter."""
+        logger.info("add_host_to_cluster", cluster_name=cluster_name, host_name_or_ip=host_name_or_ip)
+        items = collect_properties(client, vim.ClusterComputeResource, ["name"])
+        cluster_obj = None
+        for item in items:
+            if item.get("name") == cluster_name:
+                cluster_obj = item["_obj"]
+                break
+        if cluster_obj is None:
+            return {"status": "error", "error": f"Cluster '{cluster_name}' not found"}
+        spec = vim.host.ConnectSpec(
+            hostName=host_name_or_ip,
+            userName=username,
+            password=password,
+            sslThumbprint=ssl_thumbprint or "",
+            force=True,
+        )
+        task = cluster_obj.AddHost_Task(spec=spec, asConnected=True)
+        result = wait_for_task(task)
+        result["cluster_name"] = cluster_name
+        result["host_name_or_ip"] = host_name_or_ip
+        result["operation"] = "add_host_to_cluster"
+        return result
+
+    @mcp.tool()
+    @handle_tool_errors
+    @require_confirm(danger_level="critical")
+    def remove_host(host_name: str) -> dict[str, Any]:
+        """Remove a host from vCenter inventory."""
+        logger.info("remove_host", host_name=host_name)
+        host_obj = find_host_by_name(client, host_name)
+        if host_obj is None:
+            return {"status": "error", "error": f"Host '{host_name}' not found"}
+        task = host_obj.Destroy_Task()
+        result = wait_for_task(task)
+        result["host_name"] = host_name
+        result["operation"] = "remove_host"
+        return result
+
+    @mcp.tool()
+    @handle_tool_errors
+    @require_confirm(danger_level="high")
+    def move_host_to_cluster(
+        host_name: str,
+        target_cluster: str,
+    ) -> dict[str, Any]:
+        """Move a standalone ESXi host into a cluster."""
+        logger.info("move_host_to_cluster", host_name=host_name, target_cluster=target_cluster)
+        host_obj = find_host_by_name(client, host_name)
+        if host_obj is None:
+            return {"status": "error", "error": f"Host '{host_name}' not found"}
+        items = collect_properties(client, vim.ClusterComputeResource, ["name"])
+        cluster_obj = None
+        for item in items:
+            if item.get("name") == target_cluster:
+                cluster_obj = item["_obj"]
+                break
+        if cluster_obj is None:
+            return {"status": "error", "error": f"Cluster '{target_cluster}' not found"}
+        task = cluster_obj.MoveHostInto_Task(host=host_obj, resourcePool=None)
+        result = wait_for_task(task)
+        result["host_name"] = host_name
+        result["target_cluster"] = target_cluster
+        result["operation"] = "move_host_to_cluster"
         return result

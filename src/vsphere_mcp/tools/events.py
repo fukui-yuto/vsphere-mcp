@@ -19,8 +19,18 @@ def register_event_tools(mcp: Any, client: VSphereClient) -> None:
         max_count: int = 50,
         hours: int = 24,
         event_types: str | None = None,
+        entity_type: str | None = None,
+        entity_name: str | None = None,
     ) -> dict[str, Any]:
-        """List recent vCenter events. Optionally filter by hours and event type keywords."""
+        """List recent vCenter events.
+
+        Args:
+            max_count: Maximum number of events to return (default 50, max 1000).
+            hours: Time window in hours (default 24).
+            event_types: Comma-separated keywords to filter by event type or message text.
+            entity_type: Filter by entity type ('vm', 'host', 'datastore', 'cluster').
+            entity_name: Name of the entity to filter events for (requires entity_type).
+        """
         logger.info("list_recent_events", max_count=max_count, hours=hours)
         content = client.content
         event_manager = content.eventManager
@@ -31,6 +41,32 @@ def register_event_tools(mcp: Any, client: VSphereClient) -> None:
             beginTime=now - timedelta(hours=hours),
             endTime=now,
         )
+
+        # Entity-level filtering
+        if entity_type and entity_name:
+            from vsphere_mcp.utils.property_collector import collect_properties
+
+            etype_map: dict[str, Any] = {
+                "vm": vim.VirtualMachine,
+                "host": vim.HostSystem,
+                "datastore": vim.Datastore,
+                "cluster": vim.ClusterComputeResource,
+            }
+            vim_type = etype_map.get(entity_type)
+            if vim_type is None:
+                return {"status": "error", "error": f"Unknown entity_type '{entity_type}'"}
+            items = collect_properties(client, vim_type, ["name"])
+            entity_obj = None
+            for item in items:
+                if item.get("name") == entity_name:
+                    entity_obj = item["_obj"]
+                    break
+            if entity_obj is None:
+                return {"status": "error", "error": f"{entity_type} '{entity_name}' not found"}
+            filter_spec.entity = vim.event.EventFilterSpec.ByEntity(
+                entity=entity_obj,
+                recursion=vim.event.EventFilterSpec.RecursionOption.self,
+            )
 
         try:
             collector = event_manager.CreateCollectorForEvents(filter=filter_spec)
@@ -74,8 +110,14 @@ def register_event_tools(mcp: Any, client: VSphereClient) -> None:
     @handle_tool_errors
     def list_alarms(
         entity_type: str = "all",
+        entity_name: str | None = None,
     ) -> dict[str, Any]:
-        """List triggered alarms. entity_type: 'all', 'host', 'vm', 'datastore'."""
+        """List triggered alarms.
+
+        Args:
+            entity_type: 'all', 'host', 'vm', or 'datastore'.
+            entity_name: Name of a specific entity to query alarms for.
+        """
         logger.info("list_alarms", entity_type=entity_type)
         content = client.content
         alarm_manager = content.alarmManager
@@ -84,24 +126,53 @@ def register_event_tools(mcp: Any, client: VSphereClient) -> None:
             return {"status": "error", "error": "Alarm manager not available"}
 
         alarms: list[dict[str, Any]] = []
-        type_map = {"host": "HostSystem", "vm": "VirtualMachine", "datastore": "Datastore"}
+        type_map: dict[str, Any] = {
+            "host": vim.HostSystem,
+            "vm": vim.VirtualMachine,
+            "datastore": vim.Datastore,
+        }
 
         try:
-            alarm_states = alarm_manager.GetAlarmState(entity=content.rootFolder)
-            for state in alarm_states or []:
-                alarm_data: dict[str, Any] = {
-                    "alarm": (state.alarm.info.name if hasattr(state.alarm, "info") else str(state.alarm)),
-                    "entity": (state.entity.name if hasattr(state.entity, "name") else str(state.entity)),
-                    "entity_type": type(state.entity).__name__,
-                    "status": str(state.overallStatus),
-                    "time": str(state.time) if hasattr(state, "time") else None,
-                    "acknowledged": (state.acknowledged if hasattr(state, "acknowledged") else None),
-                }
-                if entity_type != "all":
-                    expected_type = type_map.get(entity_type, "")
-                    if alarm_data["entity_type"] != expected_type:
-                        continue
-                alarms.append(alarm_data)
+            # Collect alarms from specific entities for broader coverage
+            if entity_type != "all" and entity_type in type_map:
+                from vsphere_mcp.utils.property_collector import collect_properties
+
+                vim_type = type_map[entity_type]
+                items = collect_properties(client, vim_type, ["name", "triggeredAlarmState"])
+                if entity_name:
+                    items = [i for i in items if i.get("name") == entity_name]
+                    if not items:
+                        return {"status": "error", "error": f"{entity_type} '{entity_name}' not found"}
+                for item in items:
+                    for state in item.get("triggeredAlarmState", []) or []:
+                        alarm_data: dict[str, Any] = {
+                            "alarm": (
+                                state.alarm.info.name if hasattr(state.alarm, "info") else str(state.alarm)
+                            ),
+                            "entity": item.get("name", str(item["_obj"])),
+                            "entity_type": type(item["_obj"]).__name__,
+                            "status": str(state.overallStatus),
+                            "time": str(state.time) if hasattr(state, "time") else None,
+                            "acknowledged": state.acknowledged if hasattr(state, "acknowledged") else None,
+                        }
+                        alarms.append(alarm_data)
+            else:
+                # Fallback: query root folder for all alarm states
+                alarm_states = alarm_manager.GetAlarmState(entity=content.rootFolder)
+                for state in alarm_states or []:
+                    alarm_data = {
+                        "alarm": (
+                            state.alarm.info.name if hasattr(state.alarm, "info") else str(state.alarm)
+                        ),
+                        "entity": (
+                            state.entity.name if hasattr(state.entity, "name") else str(state.entity)
+                        ),
+                        "entity_type": type(state.entity).__name__,
+                        "status": str(state.overallStatus),
+                        "time": str(state.time) if hasattr(state, "time") else None,
+                        "acknowledged": state.acknowledged if hasattr(state, "acknowledged") else None,
+                    }
+                    alarms.append(alarm_data)
         except Exception as e:
             return {"alarms": [], "message": f"Alarm query limited: {e}"}
 
@@ -225,15 +296,14 @@ def register_event_tools(mcp: Any, client: VSphereClient) -> None:
         if host_obj is None:
             return {"status": "error", "error": f"Host '{host_name}' not found"}
 
+        # First call to get total line count, then fetch only the tail
+        header = diag_manager.BrowseDiagnosticLog(host=host_obj, key=log_key, start=1, lines=1)
+        line_end = header.lineEnd or 0
+        start_line = max(1, line_end - max_lines + 1)
         log_data = diag_manager.BrowseDiagnosticLog(
-            host=host_obj,
-            key=log_key,
-            start=1,
+            host=host_obj, key=log_key, start=start_line, lines=max_lines
         )
-
         lines = log_data.lineText or []
-        if len(lines) > max_lines:
-            lines = lines[-max_lines:]
 
         return {
             "host_name": host_name,
@@ -275,3 +345,48 @@ def register_event_tools(mcp: Any, client: VSphereClient) -> None:
             )
 
         return {"host_name": host_name, "total": len(log_keys), "log_keys": log_keys}
+
+    @mcp.tool()
+    @handle_tool_errors
+    def get_vcenter_log(key: str = "vpxd", num_lines: int = 100) -> dict[str, Any]:
+        """Browse a vCenter diagnostic log by key.
+
+        Args:
+            key: Log key to browse (default 'vpxd').
+            num_lines: Maximum number of lines to return from the end of the log (1-1000, default 100).
+        """
+        logger.info("get_vcenter_log", key=key, num_lines=num_lines)
+        if num_lines <= 0 or num_lines > 1000:
+            return {"status": "error", "error": "num_lines must be between 1 and 1000"}
+        content = client.content
+        dm = content.diagnosticManager
+        if not dm:
+            return {"status": "error", "error": "Diagnostic manager not available"}
+        # First call to get total line count, then fetch only the tail
+        header = dm.BrowseDiagnosticLog(host=None, key=key, start=1, lines=1)
+        line_end = header.lineEnd or 0
+        start_line = max(1, line_end - num_lines + 1)
+        log = dm.BrowseDiagnosticLog(host=None, key=key, start=start_line, lines=num_lines)
+        lines = log.lineText or []
+        return {"key": key, "total_lines": len(lines), "lines": lines}
+
+    @mcp.tool()
+    @handle_tool_errors
+    def list_vcenter_log_keys() -> dict[str, Any]:
+        """List available vCenter diagnostic log keys."""
+        logger.info("list_vcenter_log_keys")
+        content = client.content
+        dm = content.diagnosticManager
+        if not dm:
+            return {"status": "error", "error": "Diagnostic manager not available"}
+        descriptions = dm.QueryDescriptions(host=None) or []
+        log_keys: list[dict[str, Any]] = []
+        for desc in descriptions:
+            log_keys.append(
+                {
+                    "key": desc.key,
+                    "fileName": desc.fileName if hasattr(desc, "fileName") else None,
+                    "info": desc.info.summary if hasattr(desc, "info") and desc.info else None,
+                }
+            )
+        return {"total": len(log_keys), "log_keys": log_keys}

@@ -208,13 +208,13 @@ def register_tag_tools(mcp: Any, client: VSphereClient) -> None:
         if vim_type is None:
             return {"status": "error", "error": f"Unknown entity_type '{entity_type}'"}
 
-        items = collect_properties(client, vim_type, ["name"])
-        entity = None
+        items = collect_properties(client, vim_type, ["name", "customValue"])
+        entity_item = None
         for item in items:
             if item.get("name") == entity_name:
-                entity = item["_obj"]
+                entity_item = item
                 break
-        if entity is None:
+        if entity_item is None:
             return {"status": "error", "error": f"{entity_type} '{entity_name}' not found"}
 
         key_to_name: dict[int, str] = {}
@@ -223,7 +223,7 @@ def register_tag_tools(mcp: Any, client: VSphereClient) -> None:
                 key_to_name[field.key] = field.name
 
         custom_values: list[dict[str, Any]] = []
-        for cv in entity.customValue or []:
+        for cv in entity_item.get("customValue", []) or []:
             custom_values.append(
                 {
                     "attribute_name": key_to_name.get(cv.key, f"key_{cv.key}"),

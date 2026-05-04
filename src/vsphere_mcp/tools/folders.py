@@ -99,3 +99,145 @@ def register_folder_tools(mcp: Any, client: VSphereClient) -> None:
         result["folder_name"] = folder_name
         result["operation"] = "move_vm_to_folder"
         return result
+
+    @mcp.tool()
+    @handle_tool_errors
+    @require_confirm(danger_level="high")
+    def delete_folder(folder_name: str, folder_type: str = "vm", force: bool = False) -> dict[str, Any]:
+        """Delete a folder from the vSphere inventory. This operation is irreversible.
+
+        If the folder contains child entities, deletion will be refused unless force=True.
+        """
+        logger.info("delete_folder", folder_name=folder_name, folder_type=folder_type, force=force)
+        items = collect_properties(client, vim.Folder, ["name", "childType"])
+        folder_obj = None
+        for item in items:
+            if item.get("name") != folder_name:
+                continue
+            child_types = [str(t) for t in (item.get("childType") or [])]
+            type_match = {
+                "vm": "VirtualMachine",
+                "host": "ComputeResource",
+                "network": "Network",
+                "datastore": "Datastore",
+            }
+            expected = type_match.get(folder_type, folder_type)
+            if any(expected in ct for ct in child_types) or folder_type == "any":
+                folder_obj = item["_obj"]
+                break
+        if folder_obj is None:
+            return {"status": "error", "error": f"Folder '{folder_name}' of type '{folder_type}' not found"}
+
+        child_entities = getattr(folder_obj, "childEntity", []) or []
+        if child_entities and not force:
+            return {
+                "status": "error",
+                "error": (
+                    f"Folder '{folder_name}' is not empty (contains {len(child_entities)} child entities). "
+                    "Set force=True to delete a non-empty folder."
+                ),
+            }
+
+        task = folder_obj.Destroy_Task()
+        result = wait_for_task(task)
+        result["folder_name"] = folder_name
+        result["folder_type"] = folder_type
+        result["operation"] = "delete_folder"
+        return result
+
+    @mcp.tool()
+    @handle_tool_errors
+    @require_confirm(danger_level="medium")
+    def rename_folder(folder_name: str, new_name: str, folder_type: str = "vm") -> dict[str, Any]:
+        """Rename a folder in the vSphere inventory."""
+        logger.info("rename_folder", folder_name=folder_name, new_name=new_name, folder_type=folder_type)
+        items = collect_properties(client, vim.Folder, ["name", "childType"])
+        folder_obj = None
+        for item in items:
+            if item.get("name") != folder_name:
+                continue
+            child_types = [str(t) for t in (item.get("childType") or [])]
+            type_match = {
+                "vm": "VirtualMachine",
+                "host": "ComputeResource",
+                "network": "Network",
+                "datastore": "Datastore",
+            }
+            expected = type_match.get(folder_type, folder_type)
+            if any(expected in ct for ct in child_types) or folder_type == "any":
+                folder_obj = item["_obj"]
+                break
+        if folder_obj is None:
+            return {"status": "error", "error": f"Folder '{folder_name}' of type '{folder_type}' not found"}
+        task = folder_obj.Rename_Task(newName=new_name)
+        result = wait_for_task(task)
+        result["folder_name"] = folder_name
+        result["new_name"] = new_name
+        result["folder_type"] = folder_type
+        result["operation"] = "rename_folder"
+        return result
+
+    @mcp.tool()
+    @handle_tool_errors
+    @require_confirm(danger_level="high")
+    def move_entity_to_folder(
+        entity_type: str,
+        entity_name: str,
+        folder_name: str,
+        folder_type: str = "vm",
+    ) -> dict[str, Any]:
+        """Move a vSphere entity (vm, host, datastore, network) into a target folder."""
+        logger.info(
+            "move_entity_to_folder",
+            entity_type=entity_type,
+            entity_name=entity_name,
+            folder_name=folder_name,
+        )
+        from vsphere_mcp.utils.property_collector import collect_properties as _cp
+
+        type_map: dict[str, Any] = {
+            "vm": vim.VirtualMachine,
+            "host": vim.HostSystem,
+            "datastore": vim.Datastore,
+            "network": vim.Network,
+            "cluster": vim.ClusterComputeResource,
+        }
+        vim_type = type_map.get(entity_type)
+        if vim_type is None:
+            return {"status": "error", "error": f"Unknown entity_type '{entity_type}'"}
+
+        entity_items = _cp(client, vim_type, ["name"])
+        entity_obj = None
+        for item in entity_items:
+            if item.get("name") == entity_name:
+                entity_obj = item["_obj"]
+                break
+        if entity_obj is None:
+            return {"status": "error", "error": f"{entity_type} '{entity_name}' not found"}
+
+        folder_items = collect_properties(client, vim.Folder, ["name", "childType"])
+        folder_obj = None
+        for item in folder_items:
+            if item.get("name") != folder_name:
+                continue
+            child_types = [str(t) for t in (item.get("childType") or [])]
+            folder_type_map = {
+                "vm": "VirtualMachine",
+                "host": "ComputeResource",
+                "network": "Network",
+                "datastore": "Datastore",
+            }
+            expected = folder_type_map.get(folder_type, folder_type)
+            if any(expected in ct for ct in child_types) or folder_type == "any":
+                folder_obj = item["_obj"]
+                break
+        if folder_obj is None:
+            return {"status": "error", "error": f"Folder '{folder_name}' of type '{folder_type}' not found"}
+
+        task = folder_obj.MoveIntoFolder_Task(list=[entity_obj])
+        result = wait_for_task(task)
+        result["entity_type"] = entity_type
+        result["entity_name"] = entity_name
+        result["folder_name"] = folder_name
+        result["operation"] = "move_entity_to_folder"
+        return result

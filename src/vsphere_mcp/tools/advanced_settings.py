@@ -119,12 +119,12 @@ def register_advanced_settings_tools(mcp: Any, client: VSphereClient) -> None:
         current = current_options[0]
         # Convert string value to the appropriate type
         typed_value: Any = value
-        if isinstance(current.value, int):
+        if isinstance(current.value, bool):
+            typed_value = value.lower() in ("true", "1", "yes")
+        elif isinstance(current.value, int):
             typed_value = int(value)
         elif isinstance(current.value, float):
             typed_value = float(value)
-        elif isinstance(current.value, bool):
-            typed_value = value.lower() in ("true", "1", "yes")
 
         try:
             option_manager.UpdateOptions(changedValue=[vim.option.OptionValue(key=key, value=typed_value)])
@@ -164,12 +164,12 @@ def register_advanced_settings_tools(mcp: Any, client: VSphereClient) -> None:
 
         current = current_options[0]
         typed_value: Any = value
-        if isinstance(current.value, int):
+        if isinstance(current.value, bool):
+            typed_value = value.lower() in ("true", "1", "yes")
+        elif isinstance(current.value, int):
             typed_value = int(value)
         elif isinstance(current.value, float):
             typed_value = float(value)
-        elif isinstance(current.value, bool):
-            typed_value = value.lower() in ("true", "1", "yes")
 
         try:
             option_manager.UpdateOptions(changedValue=[vim.option.OptionValue(key=key, value=typed_value)])

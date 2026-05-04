@@ -52,21 +52,28 @@ src/vsphere_mcp/
   i18n.py             # 国際化メッセージフレームワーク（en/ja）
   py.typed            # 型情報マーカー
   tools/
-    _base.py          # require_confirm デコレータ、handle_tool_errors、共通ユーティリティ
-    inventory.py      # 情報取得ツール（list_*, get_*, search_*）- 15 個
-    power.py          # 電源操作（on/off/shutdown/reboot）- 4 個
-    snapshot.py       # スナップショット管理（create/revert/remove）- 3 個
-    migration.py      # vMotion（migrate_vm）- 1 個
-    lifecycle.py      # VM ライフサイクル（clone_vm, deploy_from_template, delete_vm）- 3 個
-    resources.py      # VM 構成変更（set_vm_resources, add_disk, add_nic）- 3 個
-    host.py           # ホストメンテナンスモード（enter/exit）- 2 個
-    performance.py    # パフォーマンスメトリクス（VM/ホスト）- 2 個
-    events.py         # イベント一覧、アラーム一覧 - 2 個
-    storage.py        # データストア詳細、ストレージサマリー - 2 個
-    batch.py          # 一括電源操作、一括スナップショット - 2 個
-    guest.py          # ゲスト OS プロセス一覧、コマンド実行 - 2 個
-    tags.py           # アノテーション取得/設定、カスタム属性 - 3 個
+    _base.py              # require_confirm デコレータ、handle_tool_errors、共通ユーティリティ
+    inventory.py          # インベントリ情報取得（list_*, get_*, search_*）- 16 個
+    power.py              # 電源操作（on/off/shutdown/reboot/suspend/reset）- 6 個
+    snapshot.py           # スナップショット管理（create/revert/remove/remove_all/rename/revert_current）- 6 個
+    migration.py          # vMotion / Storage vMotion / Relocate - 3 個
+    lifecycle.py          # VM ライフサイクル（作成/クローン/テンプレート/削除/登録）- 8 個
+    resources.py          # VM 構成変更（set_vm_resources, add_disk, add_nic, add_vm_cd_drive）- 4 個
+    vm_devices.py         # VM デバイス管理（ディスク/NIC/CD-DVD/ブート/extraConfig/ハードウェア等）- 23 個
+    host.py               # ホスト管理（メンテナンスモード/シャットダウン/リブート/切断/追加/移動）- 9 個
+    host_config.py        # ホスト設定（vSwitch/VMkernel/サービス/DNS/NTP/SSH/ファイアウォール等）- 33 個
+    networking.py         # ネットワーク（分散スイッチ/ポートグループ設定・作成・更新・削除）- 10 個
+    performance.py        # パフォーマンスメトリクス（VM/ホスト）- 2 個
+    events.py             # イベント・監視（イベント/アラーム/診断ログ/vCenterログ）- 8 個
+    storage.py            # ストレージ（データストア詳細/デバイス/マルチパス/再スキャン/NFS/メンテナンス）- 13 個
+    batch.py              # バッチ操作（一括電源/スナップショット/VM 情報）- 3 個
+    guest.py              # ゲスト OS 操作（プロセス/コマンド/ファイル/ディレクトリ/VMware Tools）- 8 個
+    tags.py               # タグ・属性（アノテーション/カスタム属性）- 6 個
     advanced_settings.py  # ESXi/vCenter 詳細設定の取得・変更 - 4 個
+    vcenter_admin.py      # vCenter 管理（ロール/権限/ライセンス/セッション/タスク/アラーム）- 14 個
+    cluster_config.py     # クラスタ設定（HA/DRS/リソースプール/グループ/クラスタ作成・削除）- 17 個
+    folders.py            # フォルダ管理（一覧/作成/削除/リネーム/VM 移動/エンティティ移動）- 6 個
+    datastore_browser.py  # データストアブラウザ（ファイル参照/削除/コピー/移動/ディレクトリ作成）- 5 個
   utils/
     property_collector.py  # PropertyCollector による効率的なプロパティ取得
 tests/

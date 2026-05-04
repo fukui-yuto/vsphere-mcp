@@ -26,10 +26,10 @@ def register_batch_tools(mcp: Any, client: VSphereClient) -> None:
     ) -> dict[str, Any]:
         """Perform power operation on multiple VMs.
 
-        operation: 'power_on', 'power_off', 'shutdown', 'reboot'.
+        operation: 'power_on', 'power_off', 'shutdown', 'reboot', 'suspend', 'reset'.
         """
         logger.info("batch_power_operation", vm_names=vm_names, operation=operation)
-        valid_ops = {"power_on", "power_off", "shutdown", "reboot"}
+        valid_ops = {"power_on", "power_off", "shutdown", "reboot", "suspend", "reset"}
         if operation not in valid_ops:
             return {
                 "status": "error",
@@ -54,13 +54,13 @@ def register_batch_tools(mcp: Any, client: VSphereClient) -> None:
                     if power_state == "poweredOn":
                         results.append({"vm_name": name, "status": "already_powered_on"})
                         continue
-                    task = vm_obj.PowerOn()
+                    task = vm_obj.PowerOnVM_Task()
                     r = wait_for_task(task)
                 elif operation == "power_off":
                     if power_state == "poweredOff":
                         results.append({"vm_name": name, "status": "already_powered_off"})
                         continue
-                    task = vm_obj.PowerOff()
+                    task = vm_obj.PowerOffVM_Task()
                     r = wait_for_task(task)
                 elif operation == "shutdown":
                     if power_state == "poweredOff":
@@ -68,6 +68,18 @@ def register_batch_tools(mcp: Any, client: VSphereClient) -> None:
                         continue
                     vm_obj.ShutdownGuest()
                     r = {"status": "shutdown_initiated"}
+                elif operation == "suspend":
+                    if power_state != "poweredOn":
+                        results.append({"vm_name": name, "status": "error", "error": "VM not powered on"})
+                        continue
+                    task = vm_obj.SuspendVM_Task()
+                    r = wait_for_task(task)
+                elif operation == "reset":
+                    if power_state != "poweredOn":
+                        results.append({"vm_name": name, "status": "error", "error": "VM not powered on"})
+                        continue
+                    task = vm_obj.ResetVM_Task()
+                    r = wait_for_task(task)
                 elif operation == "reboot":
                     if power_state != "poweredOn":
                         results.append({"vm_name": name, "status": "error", "error": "VM not powered on"})
@@ -79,7 +91,11 @@ def register_batch_tools(mcp: Any, client: VSphereClient) -> None:
             except Exception as e:
                 results.append({"vm_name": name, "status": "error", "error": str(e)})
 
-        ok_statuses = {"success", "shutdown_initiated", "reboot_initiated", "already_powered_on", "already_powered_off"}
+        ok_statuses = {
+            "success", "shutdown_initiated", "reboot_initiated",
+            "already_powered_on", "already_powered_off",
+            "suspend_initiated", "reset_initiated",
+        }
         succeeded = sum(1 for r in results if r.get("status") in ok_statuses)
         return {
             "operation": operation,
