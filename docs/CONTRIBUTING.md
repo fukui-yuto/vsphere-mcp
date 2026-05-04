@@ -53,10 +53,9 @@ src/vsphere_mcp/
     power.py          # 電源操作（on/off/shutdown/reboot）
     snapshot.py       # スナップショット管理（create/revert/remove）
     migration.py      # vMotion（migrate_vm）
-    provisioning.py   # VM プロビジョニング（clone, deploy_from_template）
-    config_mgmt.py    # VM 構成変更（set_vm_resources, add_disk, add_nic）
-    maintenance.py    # ホストメンテナンスモード（enter/exit）
-    lifecycle.py      # VM 削除（delete_vm）
+    lifecycle.py      # VM ライフサイクル（clone_vm, deploy_from_template, delete_vm）
+    resources.py      # VM 構成変更（set_vm_resources, add_disk, add_nic）
+    host.py           # ホストメンテナンスモード（enter/exit）
   utils/
     property_collector.py  # PropertyCollector による効率的なプロパティ取得
 tests/

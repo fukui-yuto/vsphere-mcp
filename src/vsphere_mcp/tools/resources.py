@@ -6,16 +6,15 @@ from pyVmomi import vim
 
 from vsphere_mcp.client import VSphereClient
 from vsphere_mcp.logging import get_logger
-from vsphere_mcp.tools._base import handle_tool_errors, require_confirm
-from vsphere_mcp.tools.power import _find_vm_with_props, _wait_for_task
+from vsphere_mcp.tools._base import find_vm_with_props, handle_tool_errors, require_confirm, wait_for_task
 
 logger = get_logger(__name__)
 
 
 def register_resource_tools(mcp: Any, client: VSphereClient) -> None:
     @mcp.tool()
-    @require_confirm(danger_level="medium")
     @handle_tool_errors
+    @require_confirm(danger_level="medium")
     def set_vm_resources(
         vm_name: str,
         num_cpu: int | None = None,
@@ -25,7 +24,11 @@ def register_resource_tools(mcp: Any, client: VSphereClient) -> None:
         logger.info("set_vm_resources", vm_name=vm_name, num_cpu=num_cpu, memory_mb=memory_mb)
         if num_cpu is None and memory_mb is None:
             return {"status": "error", "error": "At least one of num_cpu or memory_mb must be specified"}
-        found = _find_vm_with_props(client, vm_name)
+        if num_cpu is not None and num_cpu < 1:
+            return {"status": "error", "error": "num_cpu must be at least 1"}
+        if memory_mb is not None and memory_mb < 4:
+            return {"status": "error", "error": "memory_mb must be at least 4"}
+        found = find_vm_with_props(client, vm_name)
         if found is None:
             return {"status": "error", "error": f"VM '{vm_name}' not found"}
         spec = vim.vm.ConfigSpec()
@@ -34,7 +37,7 @@ def register_resource_tools(mcp: Any, client: VSphereClient) -> None:
         if memory_mb is not None:
             spec.memoryMB = memory_mb
         task = found["_obj"].Reconfigure(spec=spec)
-        result = _wait_for_task(task)
+        result = wait_for_task(task)
         result["vm_name"] = vm_name
         result["operation"] = "set_vm_resources"
         if num_cpu is not None:
@@ -44,8 +47,8 @@ def register_resource_tools(mcp: Any, client: VSphereClient) -> None:
         return result
 
     @mcp.tool()
-    @require_confirm(danger_level="medium")
     @handle_tool_errors
+    @require_confirm(danger_level="medium")
     def add_disk(
         vm_name: str,
         size_gb: int,
@@ -53,7 +56,9 @@ def register_resource_tools(mcp: Any, client: VSphereClient) -> None:
     ) -> dict[str, Any]:
         """Add a new virtual disk to a VM."""
         logger.info("add_disk", vm_name=vm_name, size_gb=size_gb)
-        found = _find_vm_with_props(client, vm_name, ["config.hardware.device"])
+        if size_gb < 1:
+            return {"status": "error", "error": "size_gb must be at least 1"}
+        found = find_vm_with_props(client, vm_name, ["config.hardware.device"])
         if found is None:
             return {"status": "error", "error": f"VM '{vm_name}' not found"}
 
@@ -91,22 +96,22 @@ def register_resource_tools(mcp: Any, client: VSphereClient) -> None:
         )
         config_spec = vim.vm.ConfigSpec(deviceChange=[disk_spec])
         task = found["_obj"].Reconfigure(spec=config_spec)
-        result = _wait_for_task(task)
+        result = wait_for_task(task)
         result["vm_name"] = vm_name
         result["size_gb"] = size_gb
         result["operation"] = "add_disk"
         return result
 
     @mcp.tool()
-    @require_confirm(danger_level="medium")
     @handle_tool_errors
+    @require_confirm(danger_level="medium")
     def add_nic(
         vm_name: str,
         network_name: str,
     ) -> dict[str, Any]:
         """Add a new network adapter to a VM."""
         logger.info("add_nic", vm_name=vm_name, network_name=network_name)
-        found = _find_vm_with_props(client, vm_name)
+        found = find_vm_with_props(client, vm_name)
         if found is None:
             return {"status": "error", "error": f"VM '{vm_name}' not found"}
 
@@ -128,7 +133,7 @@ def register_resource_tools(mcp: Any, client: VSphereClient) -> None:
         )
         config_spec = vim.vm.ConfigSpec(deviceChange=[nic_spec])
         task = found["_obj"].Reconfigure(spec=config_spec)
-        result = _wait_for_task(task)
+        result = wait_for_task(task)
         result["vm_name"] = vm_name
         result["network_name"] = network_name
         result["operation"] = "add_nic"

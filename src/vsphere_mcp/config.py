@@ -20,6 +20,7 @@ class VSphereSettings(BaseSettings):
     def _load_password_file(self) -> "VSphereSettings":
         if self.password_file and not self.password:
             path = Path(self.password_file)
-            if path.is_file():
-                self.password = path.read_text().strip()
+            if not path.is_file():
+                raise ValueError(f"VSPHERE_PASSWORD_FILE '{self.password_file}' does not exist or is not a file")
+            self.password = path.read_text().strip()
         return self

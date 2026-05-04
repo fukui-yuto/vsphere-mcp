@@ -50,7 +50,7 @@ def collect_properties(
     results = []
     for obj in props:
         item: dict[str, Any] = {"_obj": obj.obj}
-        for prop in obj.propSet:
+        for prop in obj.propSet or []:
             item[prop.name] = prop.val
         results.append(item)
     return results

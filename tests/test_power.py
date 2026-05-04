@@ -2,7 +2,7 @@ import pytest
 from pyVmomi import vim
 
 from vsphere_mcp.client import VSphereClient
-from vsphere_mcp.tools.power import _find_vm_with_props, _wait_for_task
+from vsphere_mcp.tools._base import find_vm_with_props, wait_for_task
 
 
 @pytest.fixture(scope="module")
@@ -20,30 +20,30 @@ def vm_name(client: VSphereClient) -> str:
 
 class TestFindVM:
     def test_find_existing(self, client: VSphereClient, vm_name: str) -> None:
-        found = _find_vm_with_props(client, vm_name)
+        found = find_vm_with_props(client, vm_name)
         assert found is not None
         assert found.get("name") == vm_name
 
     def test_find_nonexistent(self, client: VSphereClient) -> None:
-        found = _find_vm_with_props(client, "nonexistent-vm-99999")
+        found = find_vm_with_props(client, "nonexistent-vm-99999")
         assert found is None
 
 
 class TestPowerOperations:
     def test_power_off_vm(self, client: VSphereClient, vm_name: str) -> None:
-        found = _find_vm_with_props(client, vm_name)
+        found = find_vm_with_props(client, vm_name)
         assert found is not None
         power_state = str(found.get("runtime.powerState", ""))
         if power_state == "poweredOn":
             task = found["_obj"].PowerOff()
-            result = _wait_for_task(task)
+            result = wait_for_task(task)
             assert result["status"] == "success"
 
     def test_power_on_vm(self, client: VSphereClient, vm_name: str) -> None:
-        found = _find_vm_with_props(client, vm_name)
+        found = find_vm_with_props(client, vm_name)
         assert found is not None
         power_state = str(found.get("runtime.powerState", ""))
         if power_state == "poweredOff":
             task = found["_obj"].PowerOn()
-            result = _wait_for_task(task)
+            result = wait_for_task(task)
             assert result["status"] == "success"

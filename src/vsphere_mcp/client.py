@@ -59,6 +59,7 @@ class VSphereClient:
         ssl_context = None
         if self._settings.ignore_ssl:
             ssl_context = ssl._create_unverified_context()
+            logger.warning("ssl_verification_disabled", host=self._settings.host, port=self._settings.port)
         try:
             self._si = SmartConnect(
                 host=self._settings.host,
@@ -108,7 +109,3 @@ class VSphereClient:
             except Exception:
                 pass
             self._si = None
-
-    def get_container_view(self, obj_type: list[type], root: vim.ManagedEntity | None = None) -> vim.view.ContainerView:
-        root_folder = root if root is not None else self.content.rootFolder
-        return self.content.viewManager.CreateContainerView(root_folder, obj_type, recursive=True)

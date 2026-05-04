@@ -1,6 +1,6 @@
 # vsphere-mcp
 
-VMware vSphere / vCenter を Claude Code から自然言語で操作するための MCP (Model Context Protocol) サーバーです。
+VMware vSphere / vCenter を AI コーディングツール（Claude Code、GitHub Copilot、Codex 等）から自然言語で操作するための MCP (Model Context Protocol) サーバーです。
 
 > **注意**: 開発・テストはすべて [vcsim](https://github.com/vmware/govmomi/tree/main/vcsim)（vCenter Server Simulator）上で実施しています。商用 vSphere 環境への影響はありません。
 
@@ -224,7 +224,7 @@ uv pip install -e .
 }
 ```
 
-### 4. Claude Code から利用
+### 4. 利用例
 
 登録後、自然言語で操作できます:
 

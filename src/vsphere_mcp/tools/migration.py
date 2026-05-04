@@ -6,32 +6,28 @@ from pyVmomi import vim
 
 from vsphere_mcp.client import VSphereClient
 from vsphere_mcp.logging import get_logger
-from vsphere_mcp.tools._base import handle_tool_errors, require_confirm
-from vsphere_mcp.tools.power import _find_vm_with_props, _wait_for_task
-from vsphere_mcp.utils.property_collector import collect_properties
+from vsphere_mcp.tools._base import (
+    find_host_by_name,
+    find_vm_with_props,
+    handle_tool_errors,
+    require_confirm,
+    wait_for_task,
+)
 
 logger = get_logger(__name__)
 
 
-def _find_host_by_name(client: VSphereClient, host_name: str) -> vim.HostSystem | None:
-    items = collect_properties(client, vim.HostSystem, ["name"])
-    for item in items:
-        if item.get("name") == host_name:
-            return item["_obj"]
-    return None
-
-
 def register_migration_tools(mcp: Any, client: VSphereClient) -> None:
     @mcp.tool()
-    @require_confirm(danger_level="high")
     @handle_tool_errors
+    @require_confirm(danger_level="high")
     def migrate_vm(vm_name: str, target_host: str) -> dict[str, Any]:
         """Migrate (vMotion) a virtual machine to a different ESXi host."""
         logger.info("migrate_vm", vm_name=vm_name, target_host=target_host)
-        found = _find_vm_with_props(client, vm_name)
+        found = find_vm_with_props(client, vm_name)
         if found is None:
             return {"status": "error", "error": f"VM '{vm_name}' not found"}
-        host = _find_host_by_name(client, target_host)
+        host = find_host_by_name(client, target_host)
         if host is None:
             return {"status": "error", "error": f"Host '{target_host}' not found"}
         power_state = found.get("runtime.powerState")
@@ -39,7 +35,7 @@ def register_migration_tools(mcp: Any, client: VSphereClient) -> None:
             return {"status": "error", "error": f"VM '{vm_name}' must be powered on for vMotion"}
         relocate_spec = vim.vm.RelocateSpec(host=host)
         task = found["_obj"].Relocate(spec=relocate_spec)
-        result = _wait_for_task(task)
+        result = wait_for_task(task)
         result["vm_name"] = vm_name
         result["target_host"] = target_host
         result["operation"] = "migrate_vm"

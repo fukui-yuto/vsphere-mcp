@@ -4,3 +4,8 @@ services:
     command: -l 0.0.0.0:8989
     ports:
       - "8989:8989"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "-k", "https://localhost:8989/about"]
+      interval: 5s
+      timeout: 3s
+      retries: 5

@@ -42,7 +42,7 @@
 - `add_disk` - VM へのディスク追加（中リスク）
 - `add_nic` - VM へのネットワークアダプタ追加（中リスク）
 - `enter_maintenance_mode` - ESXi ホストのメンテナンスモード開始（高リスク）
-- `exit_maintenance_mode` - ESXi ホストのメンテナンスモード解除（中リスク）
+- `exit_maintenance_mode` - ESXi ホストのメンテナンスモード解除（高リスク）
 - `delete_vm` - VM の完全削除（重大リスク）
 
 #### インフラストラクチャ
@@ -58,4 +58,4 @@
 - 構造化 JSON ログ（structlog）
 - vcsim Docker Compose によるローカル開発環境
 - GitHub Actions CI（vcsim 使用）
-- 24 件の自動テスト
+- 50 件の自動テスト
