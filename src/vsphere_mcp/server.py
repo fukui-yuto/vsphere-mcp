@@ -52,6 +52,30 @@ from vsphere_mcp.tools.datastore_ext import register_datastore_ext_tools
 from vsphere_mcp.tools.storage_policy import register_storage_policy_tools
 from vsphere_mcp.tools.vsan import register_vsan_tools
 from vsphere_mcp.tools.certificate import register_certificate_tools
+from vsphere_mcp.tools.vm_devices_ext import register_vm_devices_ext_tools
+from vsphere_mcp.tools.vm_ops_ext import register_vm_ops_ext_tools
+from vsphere_mcp.tools.cluster_ops_ext import register_cluster_ops_ext_tools
+from vsphere_mcp.tools.host_ops_ext import register_host_ops_ext_tools
+from vsphere_mcp.tools.network_ext import register_network_ext_tools
+from vsphere_mcp.tools.storage_ops_ext import register_storage_ops_ext_tools
+from vsphere_mcp.tools.security import register_security_tools
+from vsphere_mcp.tools.diagnostics import register_diagnostics_tools
+from vsphere_mcp.tools.vapp_ext import register_vapp_ext_tools
+from vsphere_mcp.tools.guest_ext import register_guest_ext_tools
+from vsphere_mcp.tools.sdrs import register_sdrs_tools
+from vsphere_mcp.tools.appliance_health import register_appliance_health_tools
+from vsphere_mcp.tools.appliance_update import register_appliance_update_tools
+from vsphere_mcp.tools.search_index import register_search_index_tools
+from vsphere_mcp.tools.esxi_accounts import register_esxi_accounts_tools
+from vsphere_mcp.tools.virtual_disk_mgr import register_virtual_disk_mgr_tools
+from vsphere_mcp.tools.fcd import register_fcd_tools
+from vsphere_mcp.tools.vm_methods_ext import register_vm_methods_ext_tools
+from vsphere_mcp.tools.host_mgr_ext import register_host_mgr_ext_tools
+from vsphere_mcp.tools.vcenter_rest_ext import register_vcenter_rest_ext_tools
+from vsphere_mcp.tools.trusted_infra import register_trusted_infra_tools
+from vsphere_mcp.tools.event_ext import register_event_ext_tools
+from vsphere_mcp.tools.vm_boot_rest import register_vm_boot_rest_tools
+from vsphere_mcp.tools.namespace_compat import register_namespace_compat_tools
 
 setup_logging()
 
@@ -110,6 +134,30 @@ register_datastore_ext_tools(mcp, client)
 register_storage_policy_tools(mcp, client)
 register_vsan_tools(mcp, client)
 register_certificate_tools(mcp, client)
+register_vm_devices_ext_tools(mcp, client)
+register_vm_ops_ext_tools(mcp, client)
+register_cluster_ops_ext_tools(mcp, client)
+register_host_ops_ext_tools(mcp, client)
+register_network_ext_tools(mcp, client)
+register_storage_ops_ext_tools(mcp, client)
+register_security_tools(mcp, client)
+register_diagnostics_tools(mcp, client)
+register_vapp_ext_tools(mcp, client)
+register_guest_ext_tools(mcp, client)
+register_sdrs_tools(mcp, client)
+register_appliance_health_tools(mcp, client)
+register_appliance_update_tools(mcp, client)
+register_search_index_tools(mcp, client)
+register_esxi_accounts_tools(mcp, client)
+register_virtual_disk_mgr_tools(mcp, client)
+register_fcd_tools(mcp, client)
+register_vm_methods_ext_tools(mcp, client)
+register_host_mgr_ext_tools(mcp, client)
+register_vcenter_rest_ext_tools(mcp, client)
+register_trusted_infra_tools(mcp, client)
+register_event_ext_tools(mcp, client)
+register_vm_boot_rest_tools(mcp, client)
+register_namespace_compat_tools(mcp, client)
 
 
 def main() -> None:

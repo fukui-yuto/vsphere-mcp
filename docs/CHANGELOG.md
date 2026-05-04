@@ -5,6 +5,48 @@
 フォーマットは [Keep a Changelog](https://keepachangelog.com/ja/) に基づいており、
 [セマンティックバージョニング](https://semver.org/lang/ja/) に準拠しています。
 
+## [0.5.0] - 2026-05-04
+
+657 ツールへの拡張。issues.md の全 244 項目（残存 vSphere API ギャップ）を実装。
+
+### 追加
+
+#### 新規モジュール（24 モジュール、244 ツール）
+
+| モジュール | ツール数 | 概要 |
+|-----------|---------|------|
+| `vm_devices_ext.py` | 12 | シリアル/パラレル/USB/フロッピー/NVMe コントローラ管理 |
+| `vm_ops_ext.py` | 11 | vMotion 互換性/ディスク操作/スケジュール電源操作 |
+| `host_ops_ext.py` | 18 | SNMP/コアダンプ/自動起動/TPM/FC HBA/グラフィックス |
+| `cluster_ops_ext.py` | 12 | DRS/HA VM オーバーライド/VCHA/SDRS/リソースサマリ |
+| `network_ext.py` | 13 | NetFlow/ポートミラー/IP Pool/NIC 詳細設定 |
+| `storage_ops_ext.py` | 8 | VAAI/UNMAP/VASA プロバイダー/SIOC/NFS Kerberos |
+| `security.py` | 10 | SSO/パスワードポリシー/ログインバナー/Trust Authority |
+| `diagnostics.py` | 11 | サポートバンドル/CEIP/syslog/拡張機能管理 |
+| `vapp_ext.py` | 6 | vApp 作成/クローン/起動順序/OVF プロパティ |
+| `guest_ext.py` | 8 | ゲストファイル読み書き/レジストリ/エイリアス |
+| `sdrs.py` | 6 | SDRS レコメンデーション/コンピュートポリシー |
+| `appliance_health.py` | 12 | アプライアンス CPU/メモリ/DB/スワップヘルス |
+| `appliance_update.py` | 6 | アップデート管理/DNS/ファイアウォール |
+| `search_index.py` | 17 | SearchIndex/アラーム/NTP/アプライアンスアクセス |
+| `esxi_accounts.py` | 5 | ESXi ローカルアカウント/AD ドメイン参加 |
+| `virtual_disk_mgr.py` | 10 | VirtualDiskManager/VM 構成オプション/DVS バックアップ |
+| `fcd.py` | 10 | First Class Disk CRUD/スナップショット/アタッチ |
+| `vm_methods_ext.py` | 6 | ディスク昇格/強制終了/Tools マウント/FT 互換 |
+| `host_mgr_ext.py` | 10 | ファームウェア/ブートデバイス/キャッシュ/カーネルモジュール |
+| `vcenter_rest_ext.py` | 11 | ISO マウント/テンプレートデプロイ/HVC リンク |
+| `trusted_infra.py` | 7 | Trusted Infrastructure/DVSManager |
+| `event_ext.py` | 13 | カスタムイベント/カスタマイズ仕様/パフォーマンス/セッション |
+| `vm_boot_rest.py` | 4 | VM ブートデバイス順序/VMware Tools REST |
+| `namespace_compat.py` | 18 | Namespace ディレクトリ/互換性チェック/テナント |
+
+### 変更
+
+- ツール総数: 413 → 657（+244）
+- ツールモジュール数: 47 → 71（+24）
+
+---
+
 ## [0.3.0] - 2026-05-04
 
 301 ツールへの拡張。issues.md の全 Gap Analysis 項目を実装。

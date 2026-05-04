@@ -110,7 +110,47 @@ def some_tool(...):
 | `host_profile.py` | 2 | ホストプロファイル一覧/コンプライアンス確認 |
 | `license.py` | 4 | ライセンスキー追加/削除/割り当て管理 |
 | `fault_tolerance.py` | 3 | VMフォールトトレランス有効化/無効化/情報取得 |
-| **合計** | **301** | |
+| `storage_policy.py` | 7 | ストレージポリシー管理 |
+| `ovf.py` | 5 | OVF/OVA インポート・エクスポート |
+| `vsan.py` | 9 | vSAN 設定・ヘルス・ディスクグループ管理 |
+| `vlcm.py` | 8 | vLCM パッチ管理 |
+| `encryption.py` | 7 | VM 暗号化管理 |
+| `certificate.py` | 8 | 証明書管理 |
+| `nioc.py` | 5 | NIOC ネットワーク I/O 制御 |
+| `instant_clone.py` | 5 | インスタントクローン他 |
+| `content_library_ext.py` | 8 | コンテンツライブラリ拡張 |
+| `vcenter_services.py` | 10 | vCenter サービス管理 |
+| `pci_passthrough.py` | 9 | PCI/vGPU パススルー |
+| `dvs_advanced.py` | 6 | DVS 高度機能 |
+| `iscsi_config.py` | 5 | iSCSI 拡張設定 |
+| `tanzu.py` | 7 | Tanzu Kubernetes Grid 管理 |
+| `vm_monitoring.py` | 5 | VM モニタリング |
+| `datastore_ext.py` | 2 | データストア拡張 |
+| `vm_devices_ext.py` | 12 | VM デバイス拡張 |
+| `vm_ops_ext.py` | 11 | VM 操作拡張 |
+| `cluster_ops_ext.py` | 12 | クラスタ操作拡張 |
+| `host_ops_ext.py` | 18 | ホスト操作拡張 |
+| `network_ext.py` | 13 | ネットワーク拡張 |
+| `storage_ops_ext.py` | 8 | ストレージ操作拡張 |
+| `security.py` | 10 | セキュリティ・ID管理 |
+| `diagnostics.py` | 11 | 監視・診断・拡張管理 |
+| `vapp_ext.py` | 6 | vApp 拡張 |
+| `guest_ext.py` | 8 | ゲスト操作拡張 |
+| `sdrs.py` | 6 | SDRS・コンピュートポリシー |
+| `appliance_health.py` | 12 | アプライアンスヘルス |
+| `appliance_update.py` | 6 | アプライアンス更新・ネットワーク |
+| `search_index.py` | 17 | 検索インデックス・その他 |
+| `esxi_accounts.py` | 5 | ESXi アカウント管理 |
+| `virtual_disk_mgr.py` | 10 | 仮想ディスク管理 |
+| `fcd.py` | 10 | First Class Disk |
+| `vm_methods_ext.py` | 6 | VM メソッド拡張 |
+| `host_mgr_ext.py` | 10 | ホストマネージャー拡張 |
+| `vcenter_rest_ext.py` | 11 | vCenter REST 拡張 |
+| `trusted_infra.py` | 7 | Trusted Infrastructure |
+| `event_ext.py` | 13 | イベント・カスタマイズ拡張 |
+| `vm_boot_rest.py` | 4 | VM ブート・Tools REST |
+| `namespace_compat.py` | 18 | Namespace・互換性チェック |
+| **合計** | **657** | |
 
 ## 設計判断
 

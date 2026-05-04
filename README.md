@@ -8,7 +8,7 @@ VMware vSphere / vCenter を AI コーディングツール（Claude Code、GitH
 
 > **注意**: 開発・テストはすべて [vcsim](https://github.com/vmware/govmomi/tree/main/vcsim)（vCenter Server Simulator）上で実施しています。商用 vSphere 環境への影響はありません。
 
-## 機能一覧（全 413 ツール）
+## 機能一覧（全 657 ツール）
 
 > 全ツールの詳細は [docs/TOOLS.md](docs/TOOLS.md) を参照してください。
 
@@ -63,9 +63,33 @@ VMware vSphere / vCenter を AI コーディングツール（Claude Code、GitH
 | Tanzu | `tanzu.py` | 4 | 3 | 7 |
 | VM モニタリング | `vm_monitoring.py` | 4 | 1 | 5 |
 | データストア拡張 | `datastore_ext.py` | 1 | 1 | 2 |
-| **合計** | | **161** | **252** | **413** |
+| VM デバイス拡張 | `vm_devices_ext.py` | - | 12 | 12 |
+| VM 操作拡張 | `vm_ops_ext.py` | - | 11 | 11 |
+| クラスタ操作拡張 | `cluster_ops_ext.py` | - | 12 | 12 |
+| ホスト操作拡張 | `host_ops_ext.py` | - | 18 | 18 |
+| ネットワーク拡張 | `network_ext.py` | - | 13 | 13 |
+| ストレージ操作拡張 | `storage_ops_ext.py` | - | 8 | 8 |
+| セキュリティ・ID管理 | `security.py` | - | 10 | 10 |
+| 監視・診断・拡張管理 | `diagnostics.py` | 11 | - | 11 |
+| vApp 拡張 | `vapp_ext.py` | - | 6 | 6 |
+| ゲスト操作拡張 | `guest_ext.py` | - | 8 | 8 |
+| SDRS・コンピュートポリシー | `sdrs.py` | - | 6 | 6 |
+| アプライアンスヘルス | `appliance_health.py` | 12 | - | 12 |
+| アプライアンス更新・ネットワーク | `appliance_update.py` | - | 6 | 6 |
+| 検索インデックス・その他 | `search_index.py` | 17 | - | 17 |
+| ESXi アカウント管理 | `esxi_accounts.py` | - | 5 | 5 |
+| 仮想ディスク管理 | `virtual_disk_mgr.py` | - | 10 | 10 |
+| First Class Disk | `fcd.py` | - | 10 | 10 |
+| VM メソッド拡張 | `vm_methods_ext.py` | - | 6 | 6 |
+| ホストマネージャー拡張 | `host_mgr_ext.py` | - | 10 | 10 |
+| vCenter REST 拡張 | `vcenter_rest_ext.py` | - | 11 | 11 |
+| Trusted Infrastructure | `trusted_infra.py` | - | 7 | 7 |
+| イベント・カスタマイズ拡張 | `event_ext.py` | - | 13 | 13 |
+| VM ブート・Tools REST | `vm_boot_rest.py` | - | 4 | 4 |
+| Namespace・互換性チェック | `namespace_compat.py` | 18 | - | 18 |
+| **合計** | | **219** | **438** | **657** |
 
-### 操作ツール（252 個・confirm 必須）
+### 操作ツール（438 個・confirm 必須）
 
 すべての操作ツールは `confirm=True` を指定しない限り実行されず、確認プロンプトを返します。
 
