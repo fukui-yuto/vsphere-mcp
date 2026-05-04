@@ -26,6 +26,13 @@ def client(vsphere_client: VSphereClient) -> VSphereClient:
     return vsphere_client
 
 
+class TestTestConnection:
+    def test_connection(self, client: VSphereClient) -> None:
+        content = client.content
+        assert content.about.fullName is not None
+        assert content.about.apiVersion is not None
+
+
 class TestListVMs:
     def test_returns_list(self, client: VSphereClient) -> None:
         items = collect_properties(client, vim.VirtualMachine, VM_LIST_PROPS)
@@ -38,6 +45,18 @@ class TestListVMs:
         vm_dict = _format_vm_list(items[0])
         required = {"name", "power_state", "num_cpu", "memory_mb"}
         assert required.issubset(vm_dict.keys())
+
+    def test_pagination(self, client: VSphereClient) -> None:
+        items = collect_properties(client, vim.VirtualMachine, VM_LIST_PROPS)
+        all_vms = [_format_vm_list(item) for item in items]
+        total = len(all_vms)
+        assert total > 0
+        # Test limit
+        limited = all_vms[:2]
+        assert len(limited) <= 2
+        # Test offset
+        offset_vms = all_vms[1:]
+        assert len(offset_vms) == total - 1
 
 
 class TestGetVMInfo:

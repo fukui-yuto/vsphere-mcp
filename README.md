@@ -8,11 +8,12 @@ Operate your vSphere infrastructure from Claude Code using natural language.
 
 ## Features
 
-### Information Retrieval (read-only)
+### Information Retrieval (12 tools, read-only)
 
 | Tool | Description |
 |---|---|
-| `list_vms` | List all VMs (filter by host/cluster) |
+| `test_connection` | Test vSphere connection and return server info |
+| `list_vms` | List all VMs (filter by host/cluster, pagination with limit/offset) |
 | `get_vm_info` | Detailed VM info (CPU, memory, disks, NICs, storage, tools) |
 | `list_hosts` | List ESXi hosts (filter by cluster) |
 | `get_host_info` | Detailed ESXi host info |
@@ -24,7 +25,7 @@ Operate your vSphere infrastructure from Claude Code using natural language.
 | `get_cluster_health` | Cluster health summary with host details |
 | `search_vms` | Search VMs by name (case-insensitive) |
 
-### Operations (confirmation required)
+### Operations (16 tools, confirmation required)
 
 All destructive operations require `confirm=True` to execute. Without it, the tool returns a confirmation prompt with the danger level.
 
@@ -35,9 +36,16 @@ All destructive operations require `confirm=True` to execute. Without it, the to
 | `shutdown_vm` | Graceful guest OS shutdown | Medium |
 | `reboot_vm` | Guest OS reboot | Medium |
 | `create_snapshot` | Create VM snapshot | Medium |
+| `set_vm_resources` | Change CPU and/or memory | Medium |
+| `add_disk` | Add a new virtual disk | Medium |
+| `add_nic` | Add a new network adapter | Medium |
 | `revert_snapshot` | Revert to a snapshot | High |
 | `remove_snapshot` | Delete a snapshot | High |
 | `migrate_vm` | vMotion to another host | High |
+| `clone_vm` | Clone an existing VM | High |
+| `deploy_from_template` | Deploy a new VM from a template | High |
+| `enter_maintenance_mode` | Put ESXi host into maintenance mode | High |
+| `exit_maintenance_mode` | Take ESXi host out of maintenance mode | High |
 | `delete_vm` | Permanently delete a VM | Critical |
 
 ## Quick Start
@@ -94,6 +102,17 @@ claude mcp add --transport stdio vsphere-mcp \
   -- uv run vsphere-mcp
 ```
 
+#### Using a password file (recommended for production)
+
+```bash
+claude mcp add --transport stdio vsphere-mcp \
+  --env VSPHERE_HOST=vcenter.example.com \
+  --env VSPHERE_PORT=443 \
+  --env VSPHERE_USER=administrator@vsphere.local \
+  --env VSPHERE_PASSWORD_FILE=/run/secrets/vsphere_password \
+  -- uv run vsphere-mcp
+```
+
 ### 4. Use from Claude Code
 
 Once registered, you can use natural language:
@@ -108,6 +127,10 @@ Once registered, you can use natural language:
 > List all datastores and their free space
 
 > Create a snapshot of "db-server" called "before-upgrade"
+
+> Clone "web-01" as "web-01-staging"
+
+> Add a 50GB disk to "app-server"
 ```
 
 ## Environment Variables
@@ -118,6 +141,7 @@ Once registered, you can use natural language:
 | `VSPHERE_PORT` | `443` | vSphere API port |
 | `VSPHERE_USER` | `administrator@vsphere.local` | Username |
 | `VSPHERE_PASSWORD` | (empty) | Password |
+| `VSPHERE_PASSWORD_FILE` | (empty) | Path to a file containing the password (alternative to `VSPHERE_PASSWORD`) |
 | `VSPHERE_IGNORE_SSL` | `false` | Skip SSL certificate verification |
 
 ### SSL Configuration
@@ -154,8 +178,8 @@ power_off_vm(vm_name="web-01", confirm=True)
 | Level | Description | Examples |
 |---|---|---|
 | **Low** | Easily reversible | Power on |
-| **Medium** | May cause brief disruption | Power off, shutdown, reboot, create snapshot |
-| **High** | Significant impact, hard to reverse | Revert/remove snapshot, vMotion |
+| **Medium** | May cause brief disruption | Power off, shutdown, reboot, create snapshot, set resources, add disk/NIC |
+| **High** | Significant impact, hard to reverse | Revert/remove snapshot, vMotion, clone, deploy from template, maintenance mode |
 | **Critical** | Permanent data loss possible | Delete VM |
 
 ### Logging
@@ -167,6 +191,18 @@ All operations are logged in structured JSON format:
 ```
 
 Credentials are never included in logs.
+
+## Error Handling
+
+Connection errors are classified into specific exception types for clear diagnostics:
+
+| Error Type | Cause | Example Message |
+|---|---|---|
+| `VSphereAuthenticationError` | Invalid username or password | `Authentication failed for user 'admin' on vcenter:443` |
+| `VSphereSSLError` | SSL certificate verification failure | `SSL certificate verification failed ... Set VSPHERE_IGNORE_SSL=true` |
+| `VSphereConnectionError` | Host unreachable or connection refused | `Cannot reach vSphere at vcenter:443` |
+
+The client automatically retries on transient connection failures (up to 3 attempts with a 2-second delay).
 
 ## Development
 
@@ -193,18 +229,24 @@ vsphere-mcp/
   src/vsphere_mcp/
     server.py                  # MCP server entry point
     config.py                  # Environment variable settings
-    client.py                  # vSphere connection (lazy-init)
+    client.py                  # vSphere connection (lazy-init, auto-reconnect)
     logging.py                 # Structured logging
     tools/
-      _base.py                 # require_confirm decorator
-      inventory.py             # Read-only tools (11 tools)
+      _base.py                 # require_confirm / handle_tool_errors decorators
+      inventory.py             # Read-only tools (12 tools)
       power.py                 # Power operations (4 tools)
       snapshot.py              # Snapshot management (3 tools)
       migration.py             # vMotion (1 tool)
-      lifecycle.py             # VM delete (1 tool)
+      lifecycle.py             # VM clone / deploy / delete (3 tools)
+      resources.py             # VM resource changes: CPU, memory, disk, NIC (3 tools)
+      host.py                  # Host maintenance mode (2 tools)
     utils/
       property_collector.py    # Efficient vSphere property retrieval
-  tests/                       # 22 tests against vcsim
+  tests/                       # Integration tests against vcsim
+  docs/
+    CONTRIBUTING.md
+    SECURITY.md
+    CHANGELOG.md
   .github/workflows/ci.yml    # GitHub Actions CI
 ```
 
@@ -214,16 +256,17 @@ vsphere-mcp/
 Claude Code
     |  stdio (default) or HTTP/SSE
     v
-vsphere-mcp server (Python)
+vsphere-mcp server (Python, FastMCP)
     |  pyVmomi (HTTPS)
     v
 vCenter Server (production) or vcsim (development)
 ```
 
 - **Transport**: stdio (default, simplest for local use) or SSE (for multi-client setups)
-- **Connection**: Lazy-initialized on first tool call
+- **Connection**: Lazy-initialized on first tool call, auto-reconnect on session expiry
 - **Property retrieval**: PropertyCollector for efficient batch queries
-- **Safety**: All destructive operations gated by `require_confirm` decorator
+- **Safety**: All destructive operations gated by `require_confirm` decorator with danger levels
+- **Error handling**: Typed exceptions (`VSphereAuthenticationError`, `VSphereSSLError`, `VSphereConnectionError`)
 
 ## Known Limitations
 
@@ -237,8 +280,12 @@ vCenter Server (production) or vcsim (development)
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup and guidelines.
+See [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md) for development setup and guidelines.
 
 ## Security
 
-See [SECURITY.md](SECURITY.md) for security policy and reporting vulnerabilities.
+See [docs/SECURITY.md](docs/SECURITY.md) for security policy and reporting vulnerabilities.
+
+## Changelog
+
+See [docs/CHANGELOG.md](docs/CHANGELOG.md) for release history.
