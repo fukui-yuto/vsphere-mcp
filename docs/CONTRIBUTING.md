@@ -47,15 +47,26 @@ src/vsphere_mcp/
   config.py           # 環境変数による設定管理
   client.py           # vSphere 接続クライアント（遅延初期化・自動再接続）
   logging.py          # 構造化ログ（structlog）
+  metrics.py          # Prometheus メトリクス（オプション）
+  rbac.py             # RBAC ポリシーエンジン
+  i18n.py             # 国際化メッセージフレームワーク（en/ja）
+  py.typed            # 型情報マーカー
   tools/
-    _base.py          # require_confirm デコレータ、handle_tool_errors
-    inventory.py      # 情報取得ツール（list_*, get_*, search_*）
-    power.py          # 電源操作（on/off/shutdown/reboot）
-    snapshot.py       # スナップショット管理（create/revert/remove）
-    migration.py      # vMotion（migrate_vm）
-    lifecycle.py      # VM ライフサイクル（clone_vm, deploy_from_template, delete_vm）
-    resources.py      # VM 構成変更（set_vm_resources, add_disk, add_nic）
-    host.py           # ホストメンテナンスモード（enter/exit）
+    _base.py          # require_confirm デコレータ、handle_tool_errors、共通ユーティリティ
+    inventory.py      # 情報取得ツール（list_*, get_*, search_*）- 15 個
+    power.py          # 電源操作（on/off/shutdown/reboot）- 4 個
+    snapshot.py       # スナップショット管理（create/revert/remove）- 3 個
+    migration.py      # vMotion（migrate_vm）- 1 個
+    lifecycle.py      # VM ライフサイクル（clone_vm, deploy_from_template, delete_vm）- 3 個
+    resources.py      # VM 構成変更（set_vm_resources, add_disk, add_nic）- 3 個
+    host.py           # ホストメンテナンスモード（enter/exit）- 2 個
+    performance.py    # パフォーマンスメトリクス（VM/ホスト）- 2 個
+    events.py         # イベント一覧、アラーム一覧 - 2 個
+    storage.py        # データストア詳細、ストレージサマリー - 2 個
+    batch.py          # 一括電源操作、一括スナップショット - 2 個
+    guest.py          # ゲスト OS プロセス一覧、コマンド実行 - 2 個
+    tags.py           # アノテーション取得/設定、カスタム属性 - 3 個
+    advanced_settings.py  # ESXi/vCenter 詳細設定の取得・変更 - 4 個
   utils/
     property_collector.py  # PropertyCollector による効率的なプロパティ取得
 tests/

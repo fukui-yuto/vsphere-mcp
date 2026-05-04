@@ -5,6 +5,60 @@
 フォーマットは [Keep a Changelog](https://keepachangelog.com/ja/) に基づいており、
 [セマンティックバージョニング](https://semver.org/lang/ja/) に準拠しています。
 
+## [0.2.0] - 2026-05-04
+
+大幅な機能拡充。48 ツールへの拡張、インフラ改善、ドキュメント整備。
+
+### 追加
+
+#### 新ツール（20個追加）
+
+**情報取得ツール（16個追加）**
+- `list_resource_pools` - リソースプール一覧（CPU/メモリ割り当て）
+- `list_distributed_switches` - 分散仮想スイッチ一覧
+- `list_distributed_portgroups` - 分散ポートグループ一覧
+- `get_vm_performance` - VM パフォーマンスメトリクス取得
+- `get_host_performance` - ホストパフォーマンスメトリクス取得
+- `list_recent_events` - vCenter イベント一覧取得
+- `list_alarms` - トリガー済みアラーム一覧
+- `get_datastore_info` - データストア詳細情報取得
+- `get_storage_summary` - ストレージ全体サマリー
+- `list_guest_processes` - ゲスト OS プロセス一覧
+- `get_vm_annotation` - VM アノテーション取得
+- `get_custom_attributes` - カスタム属性定義一覧
+- `get_esxi_advanced_settings` - ESXi 詳細設定取得
+- `get_vcenter_advanced_settings` - vCenter 詳細設定取得
+
+**操作ツール（6個追加）**
+- `batch_power_operation` - 複数 VM の一括電源操作（高リスク）
+- `batch_create_snapshots` - 複数 VM の一括スナップショット作成（高リスク）
+- `execute_guest_command` - ゲスト OS コマンド実行（高リスク）
+- `set_vm_annotation` - VM アノテーション設定（低リスク）
+- `set_esxi_advanced_setting` - ESXi 詳細設定変更（高リスク）
+- `set_vcenter_advanced_setting` - vCenter 詳細設定変更（高リスク）
+
+#### インフラ
+
+- SSE トランスポート対応（`--transport sse --port 8080`）
+- Prometheus メトリクス（`--metrics-port 9090`、オプション依存）
+- RBAC ポリシー（`VSPHERE_RBAC_POLICY` 環境変数）
+- i18n メッセージフレームワーク（`VSPHERE_LANG` 環境変数、en/ja）
+- `py.typed` マーカー（型情報提供）
+- Dependabot 設定（pip / GitHub Actions 週次更新）
+
+### 改善
+
+- 共通ユーティリティの統合（`find_vm_with_props`, `wait_for_task`, `find_host_by_name` を `_base.py` に移動）
+- デコレータ適用順序の修正（`handle_tool_errors` を外側に統一）
+- タスクタイムアウト時のキャンセル処理追加
+- バッチ操作での VM 一括取得による効率化
+- 入力バリデーション強化（CPU/メモリ/ディスクサイズ）
+- SSL 無効化時の警告ログ追加
+- PropertyCollector の propSet null ガード
+- CI にカバレッジレポート（pytest-cov）と型チェック（mypy）を追加
+- confirm レスポンスでのパスワード自動マスク
+- 50 件の自動テスト
+
 ## [0.1.0] - 2025-05-04
 
 初回リリース。vSphere 管理用 MCP サーバーの基盤と 28 個のツールを実装。

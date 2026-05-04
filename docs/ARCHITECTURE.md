@@ -14,8 +14,9 @@
 
 ### server.py - MCP サーバーエントリポイント
 - FastMCP を使用した MCP サーバー
-- stdio トランスポート（デフォルト）
+- stdio トランスポート（デフォルト）または SSE トランスポート（`--transport sse --port 8080`）
 - 全ツールモジュールの登録
+- RBAC ポリシー・メトリクス・i18n の初期化
 
 ### config.py - 設定管理
 - `pydantic-settings` による環境変数ベースの設定
@@ -55,6 +56,20 @@ def some_tool(...):
 - 実行時間（`duration_ms`）を自動記録
 - `VSphereToolError` と一般例外を区別してログ出力
 
+### metrics.py - Prometheus メトリクス
+- オプション依存（`pip install vsphere-mcp[metrics]`）
+- `--metrics-port` で指定したポートに Prometheus 形式のメトリクスエンドポイントを公開
+- ツール呼び出し回数、レイテンシ、エラー率などを計測
+
+### rbac.py - RBAC ポリシーエンジン
+- `VSPHERE_RBAC_POLICY` 環境変数で JSON ポリシーファイルを指定
+- ツール単位でのアクセス許可/拒否を制御
+- ポリシー未設定時は全ツールアクセス可能（後方互換）
+
+### i18n.py - 国際化メッセージフレームワーク
+- `VSPHERE_LANG` 環境変数で言語を切り替え（`en` / `ja`）
+- 確認プロンプト、エラーメッセージ等のローカライズ
+
 ### utils/property_collector.py - 効率的プロパティ取得
 - `ContainerView` + `TraversalSpec` + `PropertySpec` による一括取得
 - vcsim との互換性を確保（managed object reference への直接プロパティアクセスが動作しない問題を回避）
@@ -64,14 +79,21 @@ def some_tool(...):
 
 | モジュール | ツール数 | 概要 |
 |---|---|---|
-| `inventory.py` | 12 | 読み取り専用ツール（list/get/search + test_connection）、ページネーション対応 |
+| `inventory.py` | 15 | 読み取り専用ツール（list/get/search + test_connection）、ページネーション対応 |
 | `power.py` | 4 | 電源操作（on/off/shutdown/reboot） |
 | `snapshot.py` | 3 | スナップショット（create/revert/remove） |
 | `migration.py` | 1 | vMotion |
 | `lifecycle.py` | 3 | VM 削除/クローン/テンプレート展開 |
 | `resources.py` | 3 | CPU/メモリ変更、ディスク追加、NIC 追加 |
 | `host.py` | 2 | ESXi メンテナンスモード（enter/exit） |
-| **合計** | **28** | |
+| `performance.py` | 2 | VM/ホストパフォーマンスメトリクス |
+| `events.py` | 2 | イベント一覧、アラーム一覧 |
+| `storage.py` | 2 | データストア詳細、ストレージサマリー |
+| `batch.py` | 2 | 一括電源操作、一括スナップショット作成 |
+| `guest.py` | 2 | ゲスト OS プロセス一覧、ゲストコマンド実行 |
+| `tags.py` | 3 | アノテーション取得/設定、カスタム属性定義一覧 |
+| `advanced_settings.py` | 4 | ESXi/vCenter 詳細設定の取得・変更 |
+| **合計** | **48** | |
 
 ## 設計判断
 

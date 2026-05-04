@@ -1,12 +1,16 @@
 # vsphere-mcp
 
+[![CI](https://github.com/fukui-yuto/vsphere-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/fukui-yuto/vsphere-mcp/actions/workflows/ci.yml)
+[![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/downloads/)
+[![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
+
 VMware vSphere / vCenter を AI コーディングツール（Claude Code、GitHub Copilot、Codex 等）から自然言語で操作するための MCP (Model Context Protocol) サーバーです。
 
 > **注意**: 開発・テストはすべて [vcsim](https://github.com/vmware/govmomi/tree/main/vcsim)（vCenter Server Simulator）上で実施しています。商用 vSphere 環境への影響はありません。
 
 ## 機能一覧
 
-### 情報取得ツール（12 個・読み取り専用・confirm 不要）
+### 情報取得ツール（28 個・読み取り専用・confirm 不要）
 
 | ツール名 | 概要 |
 |---|---|
@@ -22,8 +26,22 @@ VMware vSphere / vCenter を AI コーディングツール（Claude Code、GitH
 | `list_snapshots` | VM スナップショット一覧取得（ツリー構造） |
 | `get_cluster_health` | クラスター健全性サマリー（ホスト詳細付き） |
 | `search_vms` | VM 名で検索（大文字小文字区別なし） |
+| `list_resource_pools` | リソースプール一覧取得（CPU/メモリ割り当て） |
+| `list_distributed_switches` | 分散仮想スイッチ一覧取得 |
+| `list_distributed_portgroups` | 分散ポートグループ一覧取得 |
+| `get_vm_performance` | VM パフォーマンスメトリクス取得 |
+| `get_host_performance` | ホストパフォーマンスメトリクス取得 |
+| `list_recent_events` | vCenter イベント一覧取得 |
+| `list_alarms` | トリガー済みアラーム一覧取得 |
+| `get_datastore_info` | データストア詳細情報取得 |
+| `get_storage_summary` | ストレージ全体サマリー取得 |
+| `list_guest_processes` | ゲスト OS プロセス一覧取得 |
+| `get_vm_annotation` | VM アノテーション取得 |
+| `get_custom_attributes` | カスタム属性定義一覧取得 |
+| `get_esxi_advanced_settings` | ESXi 詳細設定取得 |
+| `get_vcenter_advanced_settings` | vCenter 詳細設定取得 |
 
-### 操作ツール（16 個・confirm 必須）
+### 操作ツール（22 個・confirm 必須）
 
 すべての操作ツールは `confirm=True` を指定しない限り実行されず、確認プロンプトを返します。
 
@@ -37,6 +55,7 @@ VMware vSphere / vCenter を AI コーディングツール（Claude Code、GitH
 | `set_vm_resources` | CPU/メモリ変更 | 中 |
 | `add_disk` | ディスク追加 | 中 |
 | `add_nic` | NIC 追加 | 中 |
+| `set_vm_annotation` | VM アノテーション設定 | 低 |
 | `revert_snapshot` | スナップショット復元 | 高 |
 | `remove_snapshot` | スナップショット削除 | 高 |
 | `migrate_vm` | vMotion（ホスト間移行） | 高 |
@@ -44,6 +63,11 @@ VMware vSphere / vCenter を AI コーディングツール（Claude Code、GitH
 | `deploy_from_template` | テンプレートから VM 展開 | 高 |
 | `enter_maintenance_mode` | ESXi メンテナンスモード開始 | 高 |
 | `exit_maintenance_mode` | ESXi メンテナンスモード終了 | 高 |
+| `batch_power_operation` | 複数 VM の一括電源操作 | 高 |
+| `batch_create_snapshots` | 複数 VM の一括スナップショット作成 | 高 |
+| `execute_guest_command` | ゲスト OS コマンド実行 | 高 |
+| `set_esxi_advanced_setting` | ESXi 詳細設定変更 | 高 |
+| `set_vcenter_advanced_setting` | vCenter 詳細設定変更 | 高 |
 | `delete_vm` | VM 完全削除 | **最高** |
 
 ## クイックスタート
@@ -254,6 +278,8 @@ uv pip install -e .
 | `VSPHERE_PASSWORD` | (空) | パスワード |
 | `VSPHERE_PASSWORD_FILE` | (空) | パスワードファイルのパス（`VSPHERE_PASSWORD` の代替） |
 | `VSPHERE_IGNORE_SSL` | `false` | SSL 証明書検証をスキップ |
+| `VSPHERE_RBAC_POLICY` | (空) | RBAC ポリシー JSON ファイルのパス |
+| `VSPHERE_LANG` | `en` | メッセージ言語（`en` / `ja`） |
 
 ### SSL 設定
 
@@ -288,9 +314,9 @@ power_off_vm(vm_name="web-01", confirm=True)
 
 | レベル | 説明 | 例 |
 |---|---|---|
-| **低** | 容易に取り消し可能 | VM 起動 |
+| **低** | 容易に取り消し可能 | VM 起動、アノテーション設定 |
 | **中** | 一時的な影響あり | 電源 OFF、シャットダウン、再起動、スナップショット作成、リソース変更 |
-| **高** | 大きな影響・取り消し困難 | スナップショット復元/削除、vMotion、クローン、テンプレート展開、メンテナンスモード |
+| **高** | 大きな影響・取り消し困難 | スナップショット復元/削除、vMotion、クローン、テンプレート展開、メンテナンスモード、一括操作、ゲストコマンド実行、詳細設定変更 |
 | **最高** | 永久的なデータ損失の可能性 | VM 削除 |
 
 ### ログ
@@ -342,15 +368,26 @@ vsphere-mcp/
     config.py                     # 環境変数による設定管理
     client.py                     # vSphere 接続（遅延初期化・自動再接続）
     logging.py                    # 構造化ログ（パスワードマスク付き）
+    metrics.py                    # Prometheus メトリクス（オプション）
+    rbac.py                       # RBAC ポリシーエンジン
+    i18n.py                       # 国際化メッセージフレームワーク（en/ja）
+    py.typed                      # 型情報マーカー
     tools/
       _base.py                    # require_confirm / handle_tool_errors デコレータ
-      inventory.py                # 情報取得ツール（12 個）
+      inventory.py                # 情報取得ツール（15 個）
       power.py                    # 電源操作（4 個）
       snapshot.py                 # スナップショット管理（3 個）
       migration.py                # vMotion（1 個）
       lifecycle.py                # VM クローン/展開/削除（3 個）
       resources.py                # リソース変更: CPU/メモリ/ディスク/NIC（3 個）
       host.py                     # ホストメンテナンスモード（2 個）
+      performance.py              # パフォーマンスメトリクス（2 個）
+      events.py                   # イベント・アラーム（2 個）
+      storage.py                  # ストレージ詳細（2 個）
+      batch.py                    # 一括操作（2 個）
+      guest.py                    # ゲスト OS 操作（2 個）
+      tags.py                     # アノテーション・カスタム属性（3 個）
+      advanced_settings.py        # 詳細設定（4 個）
     utils/
       property_collector.py       # PropertyCollector による効率的プロパティ取得
   tests/                          # vcsim 対象の統合テスト
@@ -360,7 +397,44 @@ vsphere-mcp/
     CONTRIBUTING.md               # コントリビュートガイド
     SECURITY.md                   # セキュリティポリシー
     CHANGELOG.md                  # 変更履歴
-  .github/workflows/ci.yml       # GitHub Actions CI
+  .github/
+    workflows/ci.yml              # GitHub Actions CI
+    dependabot.yml                # Dependabot 設定（pip / GitHub Actions）
+```
+
+## 高度な機能
+
+### SSE トランスポート
+
+複数クライアントから同一サーバーを共有する場合、SSE トランスポートを使用できます:
+
+```bash
+vsphere-mcp --transport sse --port 8080
+```
+
+### Prometheus メトリクス
+
+オプションの依存パッケージをインストールすることで、Prometheus 形式のメトリクスエンドポイントを公開できます:
+
+```bash
+pip install vsphere-mcp[metrics]
+vsphere-mcp --metrics-port 9090
+```
+
+### RBAC（ロールベースアクセス制御）
+
+`VSPHERE_RBAC_POLICY` 環境変数にポリシー JSON ファイルのパスを指定することで、ツールごとのアクセス制御を設定できます:
+
+```bash
+export VSPHERE_RBAC_POLICY=/path/to/policy.json
+```
+
+### 国際化（i18n）
+
+`VSPHERE_LANG` 環境変数でメッセージ言語を切り替えられます（デフォルト: `en`）:
+
+```bash
+export VSPHERE_LANG=ja
 ```
 
 ## アーキテクチャ
@@ -384,7 +458,7 @@ vCenter Server（本番）または vcsim（開発）
 ## 既知の制限事項
 
 - **vcsim と実機の差異**: vcsim と本番 vCenter で一部 API の挙動が異なります。詳細は [vcsim ドキュメント](https://github.com/vmware/govmomi/tree/main/vcsim)を参照してください。
-- **ゲスト操作**: `shutdown_vm` と `reboot_vm` はゲスト OS に VMware Tools がインストールされている必要があります。
+- **ゲスト操作**: `shutdown_vm`、`reboot_vm`、`execute_guest_command`、`list_guest_processes` はゲスト OS に VMware Tools がインストールされている必要があります。
 - **vMotion**: 本番環境では互換性のあるホスト、共有ストレージ、適切なネットワーク構成が必要です。
 
 ## ライセンス

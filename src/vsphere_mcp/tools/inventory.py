@@ -77,6 +77,31 @@ NETWORK_PROPS = [
     "name",
 ]
 
+RESOURCE_POOL_PROPS = [
+    "name",
+    "summary.config.cpuAllocation.reservation",
+    "summary.config.cpuAllocation.limit",
+    "summary.config.memoryAllocation.reservation",
+    "summary.config.memoryAllocation.limit",
+    "summary.runtime.cpu.overallUsage",
+    "summary.runtime.memory.overallUsage",
+    "vm",
+]
+
+DVSWITCH_PROPS = [
+    "name",
+    "summary.numPorts",
+    "summary.numHosts",
+    "config.uplinkPortgroup",
+    "uuid",
+]
+
+DVPORTGROUP_PROPS = [
+    "name",
+    "config.defaultPortConfig",
+    "summary.ipPoolName",
+]
+
 SNAPSHOT_PROPS = [
     "name",
     "snapshot",
@@ -204,6 +229,35 @@ def _format_datastore(data: dict[str, Any]) -> dict[str, Any]:
 
 def _format_network(data: dict[str, Any]) -> dict[str, Any]:
     return {"name": data.get("name")}
+
+
+def _format_resource_pool(data: dict[str, Any]) -> dict[str, Any]:
+    vms = data.get("vm", [])
+    return {
+        "name": data.get("name"),
+        "cpu_reservation_mhz": data.get("summary.config.cpuAllocation.reservation"),
+        "cpu_limit_mhz": data.get("summary.config.cpuAllocation.limit"),
+        "memory_reservation_mb": data.get("summary.config.memoryAllocation.reservation"),
+        "memory_limit_mb": data.get("summary.config.memoryAllocation.limit"),
+        "cpu_usage_mhz": data.get("summary.runtime.cpu.overallUsage"),
+        "memory_usage_mb": data.get("summary.runtime.memory.overallUsage"),
+        "num_vms": len(vms) if vms else 0,
+    }
+
+
+def _format_dvswitch(data: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "name": data.get("name"),
+        "uuid": data.get("uuid"),
+        "num_ports": data.get("summary.numPorts"),
+        "num_hosts": data.get("summary.numHosts"),
+    }
+
+
+def _format_dvportgroup(data: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "name": data.get("name"),
+    }
 
 
 def _walk_snapshots(snapshot_tree: list[Any], result: list[dict[str, Any]], depth: int = 0) -> None:
@@ -389,3 +443,27 @@ def register_inventory_tools(mcp: Any, client: VSphereClient) -> None:
         items = collect_properties(client, vim.VirtualMachine, VM_LIST_PROPS)
         query_lower = query.lower()
         return [_format_vm_list(item) for item in items if item.get("name") and query_lower in item["name"].lower()]
+
+    @mcp.tool()
+    @handle_tool_errors
+    def list_resource_pools() -> list[dict[str, Any]]:
+        """List all resource pools with CPU and memory allocation."""
+        logger.info("list_resource_pools")
+        items = collect_properties(client, vim.ResourcePool, RESOURCE_POOL_PROPS)
+        return [_format_resource_pool(item) for item in items]
+
+    @mcp.tool()
+    @handle_tool_errors
+    def list_distributed_switches() -> list[dict[str, Any]]:
+        """List all distributed virtual switches."""
+        logger.info("list_distributed_switches")
+        items = collect_properties(client, vim.DistributedVirtualSwitch, DVSWITCH_PROPS)
+        return [_format_dvswitch(item) for item in items]
+
+    @mcp.tool()
+    @handle_tool_errors
+    def list_distributed_portgroups() -> list[dict[str, Any]]:
+        """List all distributed virtual port groups."""
+        logger.info("list_distributed_portgroups")
+        items = collect_properties(client, vim.dvs.DistributedVirtualPortgroup, DVPORTGROUP_PROPS)
+        return [_format_dvportgroup(item) for item in items]
