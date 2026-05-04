@@ -36,6 +36,22 @@ from vsphere_mcp.tools.scheduled_tasks import register_scheduled_task_tools
 from vsphere_mcp.tools.host_profile import register_host_profile_tools
 from vsphere_mcp.tools.license import register_license_tools
 from vsphere_mcp.tools.fault_tolerance import register_ft_tools
+from vsphere_mcp.tools.vlcm import register_vlcm_tools
+from vsphere_mcp.tools.encryption import register_encryption_tools
+from vsphere_mcp.tools.ovf import register_ovf_tools
+from vsphere_mcp.tools.content_library_ext import register_content_library_ext_tools
+from vsphere_mcp.tools.vcenter_services import register_vcenter_services_tools
+from vsphere_mcp.tools.nioc import register_nioc_tools
+from vsphere_mcp.tools.instant_clone import register_instant_clone_tools
+from vsphere_mcp.tools.pci_passthrough import register_pci_passthrough_tools
+from vsphere_mcp.tools.dvs_advanced import register_dvs_advanced_tools
+from vsphere_mcp.tools.iscsi_config import register_iscsi_config_tools
+from vsphere_mcp.tools.tanzu import register_tanzu_tools
+from vsphere_mcp.tools.vm_monitoring import register_vm_monitoring_tools
+from vsphere_mcp.tools.datastore_ext import register_datastore_ext_tools
+from vsphere_mcp.tools.storage_policy import register_storage_policy_tools
+from vsphere_mcp.tools.vsan import register_vsan_tools
+from vsphere_mcp.tools.certificate import register_certificate_tools
 
 setup_logging()
 
@@ -78,6 +94,22 @@ register_scheduled_task_tools(mcp, client)
 register_host_profile_tools(mcp, client)
 register_license_tools(mcp, client)
 register_ft_tools(mcp, client)
+register_vlcm_tools(mcp, client)
+register_encryption_tools(mcp, client)
+register_ovf_tools(mcp, client)
+register_content_library_ext_tools(mcp, client)
+register_vcenter_services_tools(mcp, client)
+register_nioc_tools(mcp, client)
+register_instant_clone_tools(mcp, client)
+register_pci_passthrough_tools(mcp, client)
+register_dvs_advanced_tools(mcp, client)
+register_iscsi_config_tools(mcp, client)
+register_tanzu_tools(mcp, client)
+register_vm_monitoring_tools(mcp, client)
+register_datastore_ext_tools(mcp, client)
+register_storage_policy_tools(mcp, client)
+register_vsan_tools(mcp, client)
+register_certificate_tools(mcp, client)
 
 
 def main() -> None:

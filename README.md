@@ -8,7 +8,7 @@ VMware vSphere / vCenter を AI コーディングツール（Claude Code、GitH
 
 > **注意**: 開発・テストはすべて [vcsim](https://github.com/vmware/govmomi/tree/main/vcsim)（vCenter Server Simulator）上で実施しています。商用 vSphere 環境への影響はありません。
 
-## 機能一覧（全 301 ツール）
+## 機能一覧（全 413 ツール）
 
 > 全ツールの詳細は [docs/TOOLS.md](docs/TOOLS.md) を参照してください。
 
@@ -47,9 +47,25 @@ VMware vSphere / vCenter を AI コーディングツール（Claude Code、GitH
 | ホストプロファイル | `host_profile.py` | 2 | - | 2 |
 | ライセンス | `license.py` | 1 | 3 | 4 |
 | フォールトトレランス | `fault_tolerance.py` | 1 | 2 | 3 |
-| **合計** | | **107** | **194** | **301** |
+| ストレージポリシー | `storage_policy.py` | 4 | 3 | 7 |
+| OVF/OVA | `ovf.py` | 2 | 3 | 5 |
+| vSAN | `vsan.py` | 5 | 4 | 9 |
+| vLCM パッチ管理 | `vlcm.py` | 5 | 3 | 8 |
+| VM 暗号化 | `encryption.py` | 4 | 3 | 7 |
+| 証明書管理 | `certificate.py` | 4 | 4 | 8 |
+| NIOC | `nioc.py` | 2 | 3 | 5 |
+| インスタントクローン他 | `instant_clone.py` | 1 | 4 | 5 |
+| コンテンツライブラリ拡張 | `content_library_ext.py` | 3 | 5 | 8 |
+| vCenter サービス | `vcenter_services.py` | 6 | 4 | 10 |
+| PCI/vGPU | `pci_passthrough.py` | 5 | 4 | 9 |
+| DVS 高度機能 | `dvs_advanced.py` | 3 | 3 | 6 |
+| iSCSI 拡張 | `iscsi_config.py` | 1 | 4 | 5 |
+| Tanzu | `tanzu.py` | 4 | 3 | 7 |
+| VM モニタリング | `vm_monitoring.py` | 4 | 1 | 5 |
+| データストア拡張 | `datastore_ext.py` | 1 | 1 | 2 |
+| **合計** | | **161** | **252** | **413** |
 
-### 操作ツール（194 個・confirm 必須）
+### 操作ツール（252 個・confirm 必須）
 
 すべての操作ツールは `confirm=True` を指定しない限り実行されず、確認プロンプトを返します。
 

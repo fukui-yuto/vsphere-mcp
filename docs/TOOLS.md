@@ -1,4 +1,4 @@
-# ツール一覧（全301個）
+# ツール一覧（全413個）
 
 vsphere-mcp が提供する全ツールの一覧です。
 
@@ -470,15 +470,212 @@ vsphere-mcp が提供する全ツールの一覧です。
 | 300 | `disable_fault_tolerance` | VM フォールトトレランス無効化 | 高 |
 | 301 | `get_fault_tolerance_info` | フォールトトレランス情報取得 | - |
 
+## VM ストレージポリシー（storage_policy.py）- 7個
+
+| # | ツール名 | 説明 | リスク |
+|---|----------|------|--------|
+| 302 | `list_storage_policies` | ストレージポリシー一覧 | - |
+| 303 | `get_storage_policy` | ストレージポリシー詳細取得 | - |
+| 304 | `create_storage_policy` | ストレージポリシー作成 | 高 |
+| 305 | `delete_storage_policy` | ストレージポリシー削除 | 高 |
+| 306 | `assign_storage_policy_to_vm` | VM にストレージポリシー割り当て | 高 |
+| 307 | `get_vm_storage_policy_compliance` | VM ストレージポリシー準拠確認 | - |
+| 308 | `get_compatible_datastores` | ポリシー互換データストア一覧 | - |
+
+## OVF/OVA（ovf.py）- 5個
+
+| # | ツール名 | 説明 | リスク |
+|---|----------|------|--------|
+| 309 | `export_vm_as_ovf` | VM を OVF エクスポート（リース URL 取得） | - |
+| 310 | `import_ovf` | OVF インポート | 高 |
+| 311 | `capture_vm_to_library` | VM をコンテンツライブラリにキャプチャ | 高 |
+| 312 | `upload_file_to_library_item` | ライブラリアイテムにファイルアップロード | 高 |
+| 313 | `list_ovf_deploy_options` | OVF デプロイオプション一覧 | - |
+
+## vSAN 管理（vsan.py）- 9個
+
+| # | ツール名 | 説明 | リスク |
+|---|----------|------|--------|
+| 314 | `get_vsan_cluster_config` | vSAN クラスタ構成取得 | - |
+| 315 | `get_vsan_health_summary` | vSAN ヘルスサマリー | - |
+| 316 | `list_vsan_disk_groups` | vSAN ディスクグループ一覧 | - |
+| 317 | `add_vsan_disk_group` | vSAN ディスクグループ追加 | 高 |
+| 318 | `remove_vsan_disk_group` | vSAN ディスクグループ削除 | 重大 |
+| 319 | `get_vsan_resync_status` | vSAN 再同期ステータス | - |
+| 320 | `set_vsan_cluster_config` | vSAN クラスタ設定変更 | 高 |
+| 321 | `get_vsan_disk_info` | vSAN ディスク詳細情報 | - |
+| 322 | `evacuate_vsan_data_from_host` | vSAN データ退避（メンテナンス準備） | 高 |
+
+## vSphere Lifecycle Manager（vlcm.py）- 8個
+
+| # | ツール名 | 説明 | リスク |
+|---|----------|------|--------|
+| 323 | `list_vlcm_images` | クラスタ desired image 一覧 | - |
+| 324 | `get_vlcm_cluster_compliance` | クラスタパッチ準拠状態 | - |
+| 325 | `apply_vlcm_image` | クラスタに desired image 適用 | 重大 |
+| 326 | `scan_host_for_patches` | ホストパッチスキャン | - |
+| 327 | `get_host_patch_compliance` | ホストパッチ準拠状態 | - |
+| 328 | `remediate_host` | ホストパッチ適用 | 重大 |
+| 329 | `stage_patches_to_host` | パッチ事前ダウンロード | 中 |
+| 330 | `get_vlcm_base_images` | 利用可能 ESXi ベースイメージ一覧 | - |
+
+## VM 暗号化（encryption.py）- 7個
+
+| # | ツール名 | 説明 | リスク |
+|---|----------|------|--------|
+| 331 | `get_vm_encryption_state` | VM 暗号化状態取得 | - |
+| 332 | `encrypt_vm` | VM 暗号化 | 高 |
+| 333 | `decrypt_vm` | VM 暗号化解除 | 高 |
+| 334 | `rekey_vm` | VM 暗号化キー再生成 | 高 |
+| 335 | `list_key_providers` | 鍵プロバイダー一覧 | - |
+| 336 | `get_encryption_status` | 暗号化全体ステータス | - |
+| 337 | `list_encrypted_vms` | 暗号化 VM 一覧 | - |
+
+## ホストプロファイル拡張（host_profile.py）- 追加6個
+
+| # | ツール名 | 説明 | リスク |
+|---|----------|------|--------|
+| 338 | `create_host_profile` | リファレンスホストからプロファイル作成 | 高 |
+| 339 | `delete_host_profile` | ホストプロファイル削除 | 高 |
+| 340 | `apply_host_profile` | ホストにプロファイル適用 | 高 |
+| 341 | `associate_host_with_profile` | ホストとプロファイル関連付け | 中 |
+| 342 | `export_host_profile` | ホストプロファイルエクスポート | - |
+| 343 | `remediate_host_profile` | ホストプロファイル準拠修復 | 高 |
+
+## 証明書管理（certificate.py）- 8個
+
+| # | ツール名 | 説明 | リスク |
+|---|----------|------|--------|
+| 344 | `get_vcenter_tls_certificate` | vCenter TLS 証明書情報 | - |
+| 345 | `get_vcenter_tls_csr` | vCenter CSR 生成 | - |
+| 346 | `renew_vcenter_tls_certificate` | vCenter 証明書更新（VMCA） | 重大 |
+| 347 | `replace_vcenter_tls_certificate` | vCenter 証明書カスタム置換 | 重大 |
+| 348 | `list_trusted_root_certificates` | 信頼済みルート証明書一覧 | - |
+| 349 | `add_trusted_root_certificate` | 信頼済みルート証明書追加 | 高 |
+| 350 | `remove_trusted_root_certificate` | 信頼済みルート証明書削除 | 重大 |
+| 351 | `get_certificate_expiry_status` | 全証明書有効期限確認 | - |
+
+## Network I/O Control（nioc.py）- 5個
+
+| # | ツール名 | 説明 | リスク |
+|---|----------|------|--------|
+| 352 | `get_dvs_nioc_config` | DVS NIOC 設定取得 | - |
+| 353 | `enable_disable_dvs_nioc` | DVS NIOC 有効/無効 | 高 |
+| 354 | `list_dvs_nioc_resource_pools` | NIOC リソースプール一覧 | - |
+| 355 | `configure_dvs_nioc_resource_pool` | NIOC リソースプール設定 | 高 |
+| 356 | `set_vm_nioc_network_allocation` | VM NIC 帯域割り当て | 中 |
+
+## インスタントクローン・クロス vCenter・スケジュールタスク拡張（instant_clone.py）- 5個
+
+| # | ツール名 | 説明 | リスク |
+|---|----------|------|--------|
+| 357 | `instant_clone_vm` | インスタントクローン（実行中 VM フォーク） | 高 |
+| 358 | `cross_vcenter_migrate_vm` | クロス vCenter vMotion | 重大 |
+| 359 | `create_scheduled_task` | スケジュールタスク作成 | 高 |
+| 360 | `update_scheduled_task` | スケジュールタスク更新 | 中 |
+| 361 | `get_scheduled_task_detail` | スケジュールタスク詳細取得 | - |
+
+## コンテンツライブラリ拡張（content_library_ext.py）- 8個
+
+| # | ツール名 | 説明 | リスク |
+|---|----------|------|--------|
+| 362 | `create_subscribed_library` | サブスクライブライブラリ作成 | 高 |
+| 363 | `publish_library` | ローカルライブラリ公開 | 中 |
+| 364 | `get_library_subscription_info` | サブスクリプション設定取得 | - |
+| 365 | `update_library_subscription` | サブスクリプション設定更新 | 中 |
+| 366 | `sync_library_item` | 単一ライブラリアイテム同期 | 中 |
+| 367 | `create_library_item` | ライブラリアイテム作成 | 中 |
+| 368 | `update_library_item_metadata` | アイテムメタデータ更新 | 低 |
+| 369 | `get_library_item_files` | ライブラリアイテムファイル一覧 | - |
+
+## vCenter サービス管理（vcenter_services.py）- 10個
+
+| # | ツール名 | 説明 | リスク |
+|---|----------|------|--------|
+| 370 | `get_vcenter_health` | vCenter ヘルス状態 | - |
+| 371 | `list_vcenter_services` | vCenter サービス一覧 | - |
+| 372 | `restart_vcenter_service` | vCenter サービス再起動 | 重大 |
+| 373 | `start_vcenter_service` | vCenter サービス起動 | 高 |
+| 374 | `stop_vcenter_service` | vCenter サービス停止 | 重大 |
+| 375 | `get_vcenter_backup_status` | vCenter バックアップ状態 | - |
+| 376 | `trigger_vcenter_backup` | vCenter バックアップ実行 | 高 |
+| 377 | `get_vcenter_system_version` | vCenter バージョン情報 | - |
+| 378 | `get_vcenter_disk_usage` | vCenter ディスク使用量 | - |
+| 379 | `get_vcenter_network_config` | vCenter ネットワーク設定 | - |
+
+## PCI パススルー / SR-IOV / vGPU（pci_passthrough.py）- 9個
+
+| # | ツール名 | 説明 | リスク |
+|---|----------|------|--------|
+| 380 | `list_host_pci_devices` | ホスト PCI デバイス一覧 | - |
+| 381 | `enable_pci_passthrough` | PCI パススルー有効/無効 | 高 |
+| 382 | `add_pci_passthrough_to_vm` | VM に PCI デバイス追加 | 高 |
+| 383 | `remove_pci_device_from_vm` | VM から PCI デバイス削除 | 高 |
+| 384 | `list_host_sriov_nics` | SR-IOV 対応 NIC 一覧 | - |
+| 385 | `list_host_gpu_devices` | ホスト GPU デバイス一覧 | - |
+| 386 | `list_host_vgpu_profiles` | vGPU プロファイル一覧 | - |
+| 387 | `add_vgpu_to_vm` | VM に vGPU プロファイル追加 | 高 |
+| 388 | `get_vm_pci_devices` | VM PCI/vGPU デバイス一覧 | - |
+
+## DVS 高度機能（dvs_advanced.py）- 6個
+
+| # | ツール名 | 説明 | リスク |
+|---|----------|------|--------|
+| 389 | `configure_dvs_lacp` | DVS LACP 設定 | 高 |
+| 390 | `get_dvs_health` | DVS ヘルスチェック結果 | - |
+| 391 | `enable_dvs_health_check` | DVS ヘルスチェック有効/無効 | 中 |
+| 392 | `migrate_vm_networking_to_dvs` | VM NIC を DVS に移行 | 高 |
+| 393 | `export_dvs_config` | DVS 設定エクスポート | - |
+| 394 | `get_dvs_port_statistics` | DVS ポート統計 | - |
+
+## iSCSI 拡張設定（iscsi_config.py）- 5個
+
+| # | ツール名 | 説明 | リスク |
+|---|----------|------|--------|
+| 395 | `get_iscsi_adapter_config` | iSCSI アダプタ構成取得 | - |
+| 396 | `set_iscsi_chap_auth` | iSCSI CHAP 認証設定 | 高 |
+| 397 | `add_iscsi_static_target` | iSCSI スタティックターゲット追加 | 高 |
+| 398 | `remove_iscsi_target` | iSCSI ターゲット削除 | 高 |
+| 399 | `rescan_iscsi_hba` | iSCSI HBA 再スキャン | 低 |
+
+## vSphere with Tanzu（tanzu.py）- 7個
+
+| # | ツール名 | 説明 | リスク |
+|---|----------|------|--------|
+| 400 | `list_namespaces` | vSphere Namespace 一覧 | - |
+| 401 | `get_namespace` | Namespace 詳細取得 | - |
+| 402 | `create_namespace` | Namespace 作成 | 高 |
+| 403 | `delete_namespace` | Namespace 削除 | 重大 |
+| 404 | `update_namespace` | Namespace クォータ更新 | 中 |
+| 405 | `list_wcp_clusters` | Workload Management 有効クラスタ一覧 | - |
+| 406 | `get_wcp_cluster_status` | Workload Management ステータス | - |
+
+## VM モニタリング（vm_monitoring.py）- 5個
+
+| # | ツール名 | 説明 | リスク |
+|---|----------|------|--------|
+| 407 | `set_vm_monitoring` | VM モニタリング設定（HA ハートビート） | 中 |
+| 408 | `get_vm_monitoring_state` | VM モニタリング状態取得 | - |
+| 409 | `get_vm_uptime` | VM アップタイム取得 | - |
+| 410 | `export_vm_configuration` | VM 設定エクスポート | - |
+| 411 | `find_orphaned_vmdks` | 孤立 VMDK 検出 | - |
+
+## データストア拡張（datastore_ext.py）- 2個
+
+| # | ツール名 | 説明 | リスク |
+|---|----------|------|--------|
+| 412 | `get_datastore_file_url` | データストアファイル URL 生成 | - |
+| 413 | `upload_file_to_datastore` | データストアへファイルアップロード | 高 |
+
 ---
 
 ## リスクレベル別サマリー
 
 | リスクレベル | 件数 |
 |-------------|------|
-| - (読み取り専用) | 104 |
-| 低 | 7 |
-| 中 | 51 |
-| 高 | 124 |
-| 重大 | 15 |
-| **合計** | **301** |
+| - (読み取り専用) | 152 |
+| 低 | 9 |
+| 中 | 63 |
+| 高 | 163 |
+| 重大 | 26 |
+| **合計** | **413** |
