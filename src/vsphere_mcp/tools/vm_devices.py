@@ -471,3 +471,61 @@ def register_vm_device_tools(mcp: Any, client: VSphereClient) -> None:
                     disk_info["eagerlyScrub"] = getattr(backing, "eagerlyScrub", None)
                 disks.append(disk_info)
         return {"vm_name": vm_name, "disks": disks}
+
+    @mcp.tool()
+    @handle_tool_errors
+    def list_vm_snapshots_disk_usage(vm_name: str) -> dict[str, Any]:
+        """Get snapshot disk usage for a VM using layoutEx to find snapshot files and their sizes."""
+        logger.info("list_vm_snapshots_disk_usage", vm_name=vm_name)
+        found = find_vm_with_props(client, vm_name, ["layoutEx", "snapshot"])
+        if found is None:
+            return {"status": "error", "error": f"VM '{vm_name}' not found"}
+
+        layout_ex = found.get("layoutEx")
+        if layout_ex is None:
+            return {"vm_name": vm_name, "total_snapshot_bytes": 0, "snapshots": []}
+
+        snap_info = found.get("snapshot")
+        snapshot_names: dict[str, str] = {}
+        if snap_info and hasattr(snap_info, "rootSnapshotList"):
+
+            def _collect_names(tree: list[Any]) -> None:
+                for s in tree:
+                    snapshot_names[str(s.snapshot)] = s.name
+                    if s.childSnapshotList:
+                        _collect_names(s.childSnapshotList)
+
+            _collect_names(snap_info.rootSnapshotList)
+
+        file_size_map: dict[str, int] = {}
+        for f in layout_ex.file or []:
+            file_size_map[f.key] = f.size
+
+        snapshots: list[dict[str, Any]] = []
+        total_bytes = 0
+        for snap_layout in layout_ex.snapshot or []:
+            snap_key = str(snap_layout.key)
+            snap_name = snapshot_names.get(snap_key, snap_key)
+            snap_bytes = 0
+            file_keys: list[int] = []
+            if snap_layout.dataKey:
+                file_keys.extend(snap_layout.dataKey)
+            if hasattr(snap_layout, "memoryKey") and snap_layout.memoryKey:
+                file_keys.append(snap_layout.memoryKey)
+            for fk in file_keys:
+                snap_bytes += file_size_map.get(fk, 0)
+            total_bytes += snap_bytes
+            snapshots.append(
+                {
+                    "name": snap_name,
+                    "size_bytes": snap_bytes,
+                    "size_mb": round(snap_bytes / (1024 * 1024), 2),
+                }
+            )
+
+        return {
+            "vm_name": vm_name,
+            "total_snapshot_bytes": total_bytes,
+            "total_snapshot_mb": round(total_bytes / (1024 * 1024), 2),
+            "snapshots": snapshots,
+        }

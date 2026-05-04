@@ -7,7 +7,7 @@ from pyVmomi import vim
 
 from vsphere_mcp.client import VSphereClient
 from vsphere_mcp.logging import get_logger
-from vsphere_mcp.tools._base import handle_tool_errors
+from vsphere_mcp.tools._base import handle_tool_errors, require_confirm
 from vsphere_mcp.utils.property_collector import collect_properties
 
 logger = get_logger(__name__)
@@ -238,3 +238,24 @@ def register_vcenter_admin_tools(mcp: Any, client: VSphereClient) -> None:
                 pass
 
         return {"total": len(tasks), "hours": hours, "tasks": tasks}
+
+    @mcp.tool()
+    @handle_tool_errors
+    @require_confirm(danger_level="high")
+    def terminate_session(session_key: str) -> dict[str, Any]:
+        """Terminate a specific vCenter session by session key.
+
+        Args:
+            session_key: The session key to terminate (from list_active_sessions).
+        """
+        logger.info("terminate_session", session_key=session_key)
+        content = client.content
+        session_mgr = content.sessionManager
+        if session_mgr is None:
+            return {"status": "error", "error": "sessionManager not available"}
+        session_mgr.TerminateSession(sessionList=[session_key])
+        return {
+            "status": "success",
+            "session_key": session_key,
+            "operation": "terminate_session",
+        }

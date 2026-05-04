@@ -132,3 +132,76 @@ def register_batch_tools(mcp: Any, client: VSphereClient) -> None:
             "failed": len(vm_names) - succeeded,
             "results": results,
         }
+
+    @mcp.tool()
+    @handle_tool_errors
+    def batch_get_vm_info(vm_names: list[str]) -> dict[str, Any]:
+        """Get info for multiple VMs in one call using a single PropertyCollector fetch.
+
+        Args:
+            vm_names: List of VM names to retrieve info for.
+        """
+        logger.info("batch_get_vm_info", vm_names=vm_names)
+        props = [
+            "name",
+            "runtime.powerState",
+            "config.hardware.numCPU",
+            "config.hardware.memoryMB",
+            "config.guestFullName",
+            "guest.ipAddress",
+            "runtime.host",
+            "config.template",
+            "guest.hostName",
+            "config.uuid",
+            "config.files.vmPathName",
+            "config.annotation",
+            "summary.storage.committed",
+            "summary.storage.uncommitted",
+            "guest.toolsStatus",
+        ]
+        all_vms = collect_properties(client, vim.VirtualMachine, props)
+        name_set = set(vm_names)
+        vm_map = {}
+        for item in all_vms:
+            name = item.get("name")
+            if name in name_set:
+                vm_map[name] = item
+
+        results: list[dict[str, Any]] = []
+        for name in vm_names:
+            found = vm_map.get(name)
+            if found is None:
+                results.append({"name": name, "status": "error", "error": "VM not found"})
+                continue
+            host_ref = found.get("runtime.host")
+            committed = found.get("summary.storage.committed")
+            uncommitted = found.get("summary.storage.uncommitted")
+            results.append(
+                {
+                    "name": found.get("name"),
+                    "power_state": str(found.get("runtime.powerState", "")),
+                    "num_cpu": found.get("config.hardware.numCPU"),
+                    "memory_mb": found.get("config.hardware.memoryMB"),
+                    "guest_os": found.get("config.guestFullName"),
+                    "ip_address": found.get("guest.ipAddress"),
+                    "host": host_ref.name if host_ref else None,
+                    "template": found.get("config.template", False),
+                    "hostname": found.get("guest.hostName"),
+                    "uuid": found.get("config.uuid"),
+                    "path": found.get("config.files.vmPathName"),
+                    "annotation": found.get("config.annotation"),
+                    "storage": {
+                        "committed_gb": round(committed / (1024**3), 2) if committed else 0,
+                        "uncommitted_gb": round(uncommitted / (1024**3), 2) if uncommitted else 0,
+                    },
+                    "tools_status": str(found.get("guest.toolsStatus", "")),
+                }
+            )
+
+        found_count = sum(1 for r in results if r.get("status") != "error")
+        return {
+            "total_requested": len(vm_names),
+            "found": found_count,
+            "not_found": len(vm_names) - found_count,
+            "vms": results,
+        }

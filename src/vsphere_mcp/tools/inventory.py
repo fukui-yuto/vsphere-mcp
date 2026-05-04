@@ -53,6 +53,14 @@ DATACENTER_PROPS = [
     "name",
 ]
 
+DATACENTER_DETAIL_PROPS = [
+    "name",
+    "vmFolder",
+    "hostFolder",
+    "datastoreFolder",
+    "networkFolder",
+]
+
 CLUSTER_PROPS = [
     "name",
     "summary.totalCpu",
@@ -467,3 +475,24 @@ def register_inventory_tools(mcp: Any, client: VSphereClient) -> None:
         logger.info("list_distributed_portgroups")
         items = collect_properties(client, vim.dvs.DistributedVirtualPortgroup, DVPORTGROUP_PROPS)
         return [_format_dvportgroup(item) for item in items]
+
+    @mcp.tool()
+    @handle_tool_errors
+    def get_datacenter_info(datacenter_name: str) -> dict[str, Any]:
+        """Get detailed datacenter info including folder names."""
+        logger.info("get_datacenter_info", datacenter_name=datacenter_name)
+        items = collect_properties(client, vim.Datacenter, DATACENTER_DETAIL_PROPS)
+        for item in items:
+            if item.get("name") == datacenter_name:
+                vm_folder = item.get("vmFolder")
+                host_folder = item.get("hostFolder")
+                ds_folder = item.get("datastoreFolder")
+                net_folder = item.get("networkFolder")
+                return {
+                    "name": datacenter_name,
+                    "vmFolder": vm_folder.name if vm_folder else None,
+                    "hostFolder": host_folder.name if host_folder else None,
+                    "datastoreFolder": ds_folder.name if ds_folder else None,
+                    "networkFolder": net_folder.name if net_folder else None,
+                }
+        return {"status": "error", "error": f"Datacenter '{datacenter_name}' not found"}

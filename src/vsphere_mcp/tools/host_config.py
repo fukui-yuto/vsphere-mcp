@@ -589,3 +589,24 @@ def register_host_config_tools(mcp: Any, client: VSphereClient) -> None:
                 "status": cert_info.status,
             },
         }
+
+    @mcp.tool()
+    @handle_tool_errors
+    def get_host_time_config(host_name: str) -> dict[str, Any]:
+        """Get the current date and time of an ESXi host."""
+        logger.info("get_host_time_config", host_name=host_name)
+        host_obj = find_host_by_name(client, host_name)
+        if host_obj is None:
+            return {"status": "error", "error": f"Host '{host_name}' not found"}
+        cm = _get_config_manager(host_obj)
+        if cm is None:
+            return {"status": "error", "error": "configManager not available on this host"}
+        dt_system = cm.dateTimeSystem
+        if dt_system is None:
+            return {"status": "error", "error": "dateTimeSystem not available"}
+        current_time = dt_system.QueryDateTime()
+        return {
+            "status": "success",
+            "host_name": host_name,
+            "current_time": str(current_time),
+        }
