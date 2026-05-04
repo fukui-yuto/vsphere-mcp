@@ -193,6 +193,245 @@
 
 ---
 
+## 14. SearchIndex（検索）— 4個
+
+| # | ツール名 | 説明 | API |
+|---|----------|------|-----|
+| 123 | `find_vm_by_ip` | IP アドレスで VM 検索 | pyVmomi: `searchIndex.FindByIp(ip, vmSearch=True)` |
+| 124 | `find_vm_by_uuid` | UUID で VM 検索 | pyVmomi: `searchIndex.FindByUuid(uuid, vmSearch=True)` |
+| 125 | `find_vm_by_dns_name` | DNS 名で VM 検索 | pyVmomi: `searchIndex.FindByDnsName(dnsName, vmSearch=True)` |
+| 126 | `find_by_inventory_path` | インベントリパスでエンティティ検索 | pyVmomi: `searchIndex.FindByInventoryPath(path)` |
+
+## 15. ESXi ローカルアカウント管理 — 3個
+
+| # | ツール名 | 説明 | API |
+|---|----------|------|-----|
+| 127 | `create_esxi_local_user` | ESXi ローカルユーザー作成 | pyVmomi: `hostLocalAccountManager.CreateUser()` |
+| 128 | `remove_esxi_local_user` | ESXi ローカルユーザー削除 | pyVmomi: `hostLocalAccountManager.RemoveUser()` |
+| 129 | `update_esxi_local_user` | ESXi ローカルユーザー更新（パスワード等） | pyVmomi: `hostLocalAccountManager.UpdateUser()` |
+
+## 16. ESXi AD ドメイン参加 — 2個
+
+| # | ツール名 | 説明 | API |
+|---|----------|------|-----|
+| 130 | `join_esxi_to_domain` | ESXi を AD ドメインに参加 | pyVmomi: `hostAuthenticationManager.JoinDomain_Task()` |
+| 131 | `leave_esxi_domain` | ESXi を AD ドメインから離脱 | pyVmomi: `hostAuthenticationManager.LeaveCurrentDomain_Task()` |
+
+## 17. VirtualDiskManager（仮想ディスクファイル操作）— 5個
+
+| # | ツール名 | 説明 | API |
+|---|----------|------|-----|
+| 132 | `copy_virtual_disk` | 仮想ディスクファイルコピー（データストア間） | pyVmomi: `VirtualDiskManager.CopyVirtualDisk_Task()` |
+| 133 | `move_virtual_disk` | 仮想ディスクファイル移動 | pyVmomi: `VirtualDiskManager.MoveVirtualDisk_Task()` |
+| 134 | `delete_virtual_disk` | 仮想ディスクファイル削除 | pyVmomi: `VirtualDiskManager.DeleteVirtualDisk_Task()` |
+| 135 | `get_virtual_disk_uuid` | 仮想ディスク UUID 取得 | pyVmomi: `VirtualDiskManager.QueryVirtualDiskUuid()` |
+| 136 | `set_virtual_disk_uuid` | 仮想ディスク UUID 設定 | pyVmomi: `VirtualDiskManager.SetVirtualDiskUuid()` |
+
+## 18. VM 構成オプション — 2個
+
+| # | ツール名 | 説明 | API |
+|---|----------|------|-----|
+| 137 | `query_vm_config_option` | HW バージョン別有効構成オプション取得 | pyVmomi: `environmentBrowser.QueryConfigOption()` |
+| 138 | `query_vm_config_target` | VM 作成時のターゲットリソース情報取得 | pyVmomi: `environmentBrowser.QueryConfigTarget()` |
+
+## 19. VMFS エクステント / DVS エクスポート — 3個
+
+| # | ツール名 | 説明 | API |
+|---|----------|------|-----|
+| 139 | `extend_vmfs_datastore` | VMFS にエクステント追加（expand とは別） | pyVmomi: `datastoreSystem.ExtendVmfsDatastore()` |
+| 140 | `backup_dvs_config` | DVS 構成バックアップ（エクスポート） | pyVmomi: `DVSManagerExportEntity_Task()` |
+| 141 | `restore_dvs_config` | DVS 構成リストア（インポート） | pyVmomi: `DVSManagerImportEntity_Task()` |
+
+## 20. First Class Disks（FCD / IVD）— 10個
+
+| # | ツール名 | 説明 | API |
+|---|----------|------|-----|
+| 142 | `create_fcd` | First Class Disk 作成 | pyVmomi: `vStorageObjectManager.CreateDisk_Task()` |
+| 143 | `delete_fcd` | First Class Disk 削除 | pyVmomi: `vStorageObjectManager.DeleteVStorageObject_Task()` |
+| 144 | `list_fcds` | データストア上 FCD 一覧 | pyVmomi: `vStorageObjectManager.ListVStorageObject()` |
+| 145 | `get_fcd_info` | FCD メタデータ取得 | pyVmomi: `vStorageObjectManager.RetrieveVStorageObject()` |
+| 146 | `clone_fcd` | FCD クローン | pyVmomi: `vStorageObjectManager.CloneVStorageObject_Task()` |
+| 147 | `relocate_fcd` | FCD 別データストアへ移動 | pyVmomi: `vStorageObjectManager.RelocateVStorageObject_Task()` |
+| 148 | `create_fcd_snapshot` | FCD スナップショット作成 | pyVmomi: `vStorageObjectManager.CreateSnapshot_Task()` |
+| 149 | `delete_fcd_snapshot` | FCD スナップショット削除 | pyVmomi: `vStorageObjectManager.DeleteSnapshot_Task()` |
+| 150 | `get_fcd_snapshots` | FCD スナップショット情報取得 | pyVmomi: `vStorageObjectManager.RetrieveSnapshotInfo()` |
+| 151 | `attach_detach_fcd` | FCD を VM に接続/切断 | pyVmomi: `AttachDisk_Task()` / `DetachDisk_Task()` |
+
+## 21. VM メソッド（追加）— 6個
+
+| # | ツール名 | 説明 | API |
+|---|----------|------|-----|
+| 152 | `promote_vm_disks` | リンククローンディスクをフルコピーに昇格 | pyVmomi: `vm.PromoteDisks_Task()` |
+| 153 | `terminate_vm` | VM 強制終了（電源 OFF とは異なる） | pyVmomi: `vm.TerminateVM()` |
+| 154 | `mount_tools_installer` | VMware Tools インストーラ CD マウント | pyVmomi: `vm.MountToolsInstaller()` |
+| 155 | `unmount_tools_installer` | VMware Tools インストーラ CD アンマウント | pyVmomi: `vm.UnmountToolsInstaller()` |
+| 156 | `query_ft_compatibility` | VM FT 互換性チェック | pyVmomi: `vm.QueryFaultToleranceCompatibility()` |
+| 157 | `query_vm_unowned_files` | VM 未所有ファイル検出 | pyVmomi: `vm.QueryUnownedFiles()` |
+
+## 22. ホストマネージャー（追加）— 10個
+
+| # | ツール名 | 説明 | API |
+|---|----------|------|-----|
+| 158 | `backup_host_firmware` | ESXi ファームウェア/設定バックアップ | pyVmomi: `firmwareSystem.BackupFirmwareConfiguration()` |
+| 159 | `restore_host_firmware` | ESXi ファームウェア設定リストア | pyVmomi: `firmwareSystem.RestoreFirmwareConfiguration()` |
+| 160 | `get_host_boot_devices` | ESXi ブートデバイス一覧 | pyVmomi: `bootDeviceSystem.QueryBootDevices()` |
+| 161 | `set_host_boot_device` | ESXi ブートデバイス設定 | pyVmomi: `bootDeviceSystem.UpdateBootDevice()` |
+| 162 | `configure_host_cache` | SSD ホストキャッシュ設定 | pyVmomi: `cacheConfigurationManager.ConfigureHostCache_Task()` |
+| 163 | `get_host_cache_config` | ホストキャッシュ構成取得 | pyVmomi: `cacheConfigurationManager` |
+| 164 | `list_host_kernel_modules` | ESXi カーネルモジュール一覧 | pyVmomi: `kernelModuleSystem.QueryModules()` |
+| 165 | `get_host_vmkernel_nic_services` | VMkernel NIC サービスバインド取得 | pyVmomi: `virtualNicManager.QueryNetConfig()` |
+| 166 | `set_host_vmkernel_nic_service` | VMkernel NIC サービス選択/解除 | pyVmomi: `virtualNicManager.SelectVnic()` / `DeselectVnic()` |
+| 167 | `get_host_image_config` | ESXi イメージ設定取得 | pyVmomi: `imageConfigManager.FetchSoftwarePackages()` |
+
+## 23. StorageResourceManager（SDRS 追加）— 2個
+
+| # | ツール名 | 説明 | API |
+|---|----------|------|-----|
+| 168 | `get_sdrs_placement_recommendations` | SDRS 配置レコメンデーション取得 | pyVmomi: `StorageResourceManager.RecommendDatastores()` |
+| 169 | `apply_sdrs_recommendation` | SDRS レコメンデーション適用 | pyVmomi: `ApplyStorageDrsRecommendation_Task()` |
+
+## 24. コンピュートポリシー（vSphere 7+）— 4個
+
+| # | ツール名 | 説明 | API |
+|---|----------|------|-----|
+| 170 | `list_compute_policies` | コンピュートポリシー一覧 | REST: `GET /api/vcenter/compute-policies` |
+| 171 | `create_compute_policy` | コンピュートポリシー作成 | REST: `POST /api/vcenter/compute-policies` |
+| 172 | `get_compute_policy` | コンピュートポリシー詳細取得 | REST: `GET /api/vcenter/compute-policies/{id}` |
+| 173 | `delete_compute_policy` | コンピュートポリシー削除 | REST: `DELETE /api/vcenter/compute-policies/{id}` |
+
+## 25. アプライアンスヘルス/監視 REST — 12個
+
+| # | ツール名 | 説明 | API |
+|---|----------|------|-----|
+| 174 | `get_appliance_health_overview` | アプライアンス全サブシステムヘルス | REST: `GET /api/appliance/health` |
+| 175 | `get_appliance_health_memory` | アプライアンスメモリヘルス | REST: `GET /api/appliance/health/mem` |
+| 176 | `get_appliance_health_cpu` | アプライアンス CPU 負荷ヘルス | REST: `GET /api/appliance/health/load` |
+| 177 | `get_appliance_health_storage` | アプライアンスストレージヘルス | REST: `GET /api/appliance/health/storage` |
+| 178 | `get_appliance_health_database` | アプライアンス DB ヘルス | REST: `GET /api/appliance/health/database-storage` |
+| 179 | `get_appliance_health_swap` | アプライアンススワップヘルス | REST: `GET /api/appliance/health/swap` |
+| 180 | `get_appliance_health_softwarepackages` | ソフトウェアパッケージヘルス | REST: `GET /api/appliance/health/software-packages` |
+| 181 | `get_appliance_monitoring_data` | アプライアンス監視メトリクス | REST: `GET /api/appliance/monitoring` |
+| 182 | `get_appliance_system_time` | アプライアンスシステム時刻 | REST: `GET /api/appliance/system/time` |
+| 183 | `get_appliance_timezone` | アプライアンスタイムゾーン取得/設定 | REST: `GET/PUT /api/appliance/system/time/timezone` |
+| 184 | `get_appliance_uptime` | アプライアンスアップタイム | REST: `GET /api/appliance/system/uptime` |
+| 185 | `shutdown_reboot_appliance` | アプライアンスシャットダウン/リブート | REST: `POST /api/appliance/shutdown` |
+
+## 26. アプライアンスアップデート管理 — 3個
+
+| # | ツール名 | 説明 | API |
+|---|----------|------|-----|
+| 186 | `get_appliance_update_pending` | 保留中アップデート一覧 | REST: `GET /api/appliance/update/pending` |
+| 187 | `get_appliance_update_staged` | ステージ済みアップデート情報 | REST: `GET /api/appliance/update/staged` |
+| 188 | `stage_appliance_update` | アップデートステージング | REST: `POST /api/appliance/update/pending/{ver}?action=stage` |
+
+## 27. アプライアンスネットワーク（追加）— 3個
+
+| # | ツール名 | 説明 | API |
+|---|----------|------|-----|
+| 189 | `get_appliance_dns_domains` | DNS 検索ドメイン取得 | REST: `GET /api/appliance/networking/dns/domains` |
+| 190 | `get_appliance_dns_hostname` | ホスト名取得 | REST: `GET /api/appliance/networking/dns/hostname` |
+| 191 | `get_appliance_firewall_rules` | アプライアンスファイアウォールルール | REST: `GET /api/appliance/networking/firewall/inbound` |
+
+## 28. vCenter REST API（追加エンドポイント）— 11個
+
+| # | ツール名 | 説明 | API |
+|---|----------|------|-----|
+| 192 | `list_content_registries` | Harbor コンテナレジストリ一覧 | REST: `GET /api/vcenter/content/registries` |
+| 193 | `get_datastore_default_policy` | データストアデフォルトポリシー取得 | REST: `GET /api/vcenter/datastore/default-policy` |
+| 194 | `mount_iso_to_vm_rest` | ISO マウント（REST） | REST: `POST /api/vcenter/iso/vm/{vm}` |
+| 195 | `unmount_iso_from_vm_rest` | ISO アンマウント（REST） | REST: `POST /api/vcenter/iso/vm/{vm}?action=unmount` |
+| 196 | `get_hvc_links` | Hybrid Linked Mode リンク一覧 | REST: `GET /api/vcenter/hvc/links` |
+| 197 | `list_consumption_domains` | コンサンプションドメイン一覧 | REST: `GET /api/vcenter/consumption-domains` |
+| 198 | `get_vcenter_system_config` | vCenter システム設定取得 | REST: `GET /api/vcenter/system-config` |
+| 199 | `deploy_vm_from_library_template` | ライブラリテンプレートから VM デプロイ（REST） | REST: `POST /api/vcenter/vm-template/library-items/{id}?action=deploy` |
+| 200 | `get_vm_guest_power_state_rest` | VM ゲスト電源状態取得（REST） | REST: `GET /api/vcenter/vm/{vm}/guest/power` |
+| 201 | `get_storage_policy_entity_compliance` | エンティティ別ポリシー準拠状態 | REST: `GET /api/vcenter/storage/policies/entities/compliance` |
+| 202 | `list_vcenter_networks_rest` | ネットワーク一覧（REST/NSX 含む） | REST: `GET /api/vcenter/network` |
+
+## 29. Trusted Infrastructure（拡張）— 4個
+
+| # | ツール名 | 説明 | API |
+|---|----------|------|-----|
+| 203 | `list_trusted_kms_providers` | 信頼済み KMS プロバイダー一覧 | REST: `GET /api/vcenter/trusted-infrastructure/kms/services` |
+| 204 | `get_trusted_cluster_attestation_report` | クラスタアテステーションレポート | REST |
+| 205 | `configure_trust_authority_host` | Trust Authority ホスト設定 | REST |
+| 206 | `list_trust_authority_hosts` | Trust Authority ホスト一覧 | REST |
+
+## 30. DVSManager メソッド — 3個
+
+| # | ツール名 | 説明 | API |
+|---|----------|------|-----|
+| 207 | `query_compatible_hosts_for_dvs` | DVS 互換ホスト照会 | pyVmomi: `dvsManager.QueryCompatibleHostForNewDvs()` |
+| 208 | `query_dvs_feature_capability` | DVS 機能ケーパビリティ照会 | pyVmomi: `dvsManager.QueryDvsFeatureCapability()` |
+| 209 | `query_available_dvs_specs` | 利用可能 DVS 仕様照会 | pyVmomi: `dvsManager.QueryAvailableDvsSpec()` |
+
+## 31. EventManager（追加）— 2個
+
+| # | ツール名 | 説明 | API |
+|---|----------|------|-----|
+| 210 | `post_custom_event` | カスタムイベント投稿 | pyVmomi: `eventManager.PostEvent()` |
+| 211 | `query_events_by_entity` | エンティティ別イベント照会 | pyVmomi: `eventManager.QueryEvents()` |
+
+## 32. CustomizationSpecManager（追加）— 3個
+
+| # | ツール名 | 説明 | API |
+|---|----------|------|-----|
+| 212 | `duplicate_customization_spec` | カスタマイズ仕様複製 | pyVmomi: `DuplicateCustomizationSpec()` |
+| 213 | `rename_customization_spec` | カスタマイズ仕様リネーム | pyVmomi: `RenameCustomizationSpec()` |
+| 214 | `export_customization_spec_xml` | カスタマイズ仕様 XML エクスポート/インポート | pyVmomi: `CustomizationSpecItemToXml()` |
+
+## 33. PerfManager（追加）— 2個
+
+| # | ツール名 | 説明 | API |
+|---|----------|------|-----|
+| 215 | `update_performance_interval` | パフォーマンス収集インターバル更新 | pyVmomi: `perfManager.UpdatePerfInterval()` |
+| 216 | `get_composite_performance` | 複合パフォーマンスデータ取得 | pyVmomi: `perfManager.QueryPerfComposite()` |
+
+## 34. SessionManager / AlarmManager / LicenseManager（追加）— 6個
+
+| # | ツール名 | 説明 | API |
+|---|----------|------|-----|
+| 217 | `acquire_clone_ticket` | セッションクローンチケット取得 | pyVmomi: `sessionManager.AcquireCloneTicket()` |
+| 218 | `get_current_session_info` | 現在のセッション詳細取得 | pyVmomi: `sessionManager.CurrentSession` |
+| 219 | `get_alarm_state` | エンティティのアラーム状態取得 | pyVmomi: `alarmManager.GetAlarmState()` |
+| 220 | `set_alarm_status` | アラームステータス設定（green/yellow/red） | pyVmomi: `alarmManager.SetAlarmStatus()` |
+| 221 | `decode_license_key` | ライセンスキーデコード（エディション/機能表示） | pyVmomi: `licenseManager.DecodeLicenseKeyResult()` |
+| 222 | `get_license_usage` | ライセンス使用状況/消費データ | pyVmomi: `licenseManager.QueryLicenseUsage()` |
+
+## 35. VM ブートデバイス / Tools（REST）— 4個
+
+| # | ツール名 | 説明 | API |
+|---|----------|------|-----|
+| 223 | `get_vm_boot_device_order` | VM ブートデバイス順序取得（REST） | REST: `GET /api/vcenter/vm/{vm}/hardware/boot/device` |
+| 224 | `set_vm_boot_device_order` | VM ブートデバイス順序設定（REST） | REST: `PUT /api/vcenter/vm/{vm}/hardware/boot/device` |
+| 225 | `install_vm_tools` | VMware Tools インストール（REST） | REST: `POST /api/vcenter/vm/{vm}/tools?action=install` |
+| 226 | `upgrade_vm_tools_rest` | VMware Tools アップグレード（REST） | REST: `POST /api/vcenter/vm/{vm}/tools?action=upgrade` |
+
+## 36. DatastoreNamespaceManager / VMCompatibilityChecker / その他 — 11個
+
+| # | ツール名 | 説明 | API |
+|---|----------|------|-----|
+| 227 | `create_datastore_namespace_directory` | VVOL/vSAN トップレベルディレクトリ作成 | pyVmomi: `datastoreNamespaceManager.CreateDirectory()` |
+| 228 | `delete_datastore_namespace_directory` | Namespace ディレクトリ削除 | pyVmomi: `datastoreNamespaceManager.DeleteDirectory()` |
+| 229 | `check_vm_compatibility` | VM 配置互換性チェック | pyVmomi: `vmCompatibilityChecker.CheckCompatibility_Task()` |
+| 230 | `check_power_on_compatibility` | VM 電源 ON 互換性チェック | pyVmomi: `vmCompatibilityChecker.CheckPowerOn_Task()` |
+| 231 | `list_tenants` | テナント一覧（vSphere 7.0u2+） | pyVmomi: `tenantManager` |
+| 232 | `query_host_connected_luns` | ホスト接続 LUN 照会 | pyVmomi: `storageQueryManager.QueryHostsWithAttachedLun()` |
+| 233 | `get_guest_customization_status` | ゲストカスタマイゼーション状態取得 | pyVmomi: `guestCustomizationManager.GetCustomizationStatus()` |
+| 234 | `abort_guest_customization` | ゲストカスタマイゼーション中断 | pyVmomi: `guestCustomizationManager.AbortCustomization()` |
+| 235 | `get_vcenter_snmp_config` | vCenter SNMP 設定取得 | pyVmomi: `content.snmpSystem.configuration` |
+| 236 | `refresh_vm_storage_info` | VM ストレージ情報リフレッシュ | pyVmomi: `vm.RefreshStorageInfo()` |
+| 237 | `set_vm_display_topology` | VM ディスプレイ解像度/トポロジ設定 | pyVmomi: `vm.SetDisplayTopology()` |
+| 238 | `get_vcenter_service_list` | vCenter サービス一覧（ServiceManager） | pyVmomi: `serviceManager.QueryServiceList()` |
+| 239 | `get_cluster_profile_compliance` | クラスタプロファイル準拠チェック | pyVmomi: `clusterProfileManager.CheckCompliance_Task()` |
+| 240 | `list_cluster_profiles` | クラスタコンピュートプロファイル一覧 | pyVmomi: `clusterProfileManager.profiles` |
+| 241 | `get_vcenter_resource_pools_rest` | リソースプール一覧（REST） | REST: `GET /api/vcenter/resource-pool` |
+| 242 | `get_vcenter_authentication_token` | vCenter 認証トークン取得 | REST: `GET /api/vcenter/authentication/token` |
+| 243 | `get_guest_customization_specs_rest` | カスタマイズ仕様一覧（REST） | REST: `GET /api/vcenter/guest/customization-specs` |
+| 244 | `update_tenant` | テナントリソース割り当て更新 | pyVmomi: `tenantManager.UpdateTenantConfiguration()` |
+
+---
+
 ## サマリー
 
 | カテゴリ | ツール数 |
@@ -210,6 +449,29 @@
 | ゲスト操作（拡張） | 8 |
 | アラーム/自動化 | 2 |
 | その他 | 11 |
-| **合計** | **122** |
+| SearchIndex | 4 |
+| ESXi ローカルアカウント | 3 |
+| ESXi AD ドメイン | 2 |
+| VirtualDiskManager | 5 |
+| VM 構成オプション | 2 |
+| VMFS / DVS | 3 |
+| First Class Disks (FCD) | 10 |
+| VM メソッド（追加） | 6 |
+| ホストマネージャー（追加） | 10 |
+| SDRS（追加） | 2 |
+| コンピュートポリシー | 4 |
+| アプライアンスヘルス/監視 | 12 |
+| アプライアンスアップデート | 3 |
+| アプライアンスネットワーク（追加） | 3 |
+| vCenter REST（追加） | 11 |
+| Trusted Infrastructure（拡張） | 4 |
+| DVSManager | 3 |
+| EventManager（追加） | 2 |
+| CustomizationSpecManager（追加） | 3 |
+| PerfManager（追加） | 2 |
+| Session/Alarm/License（追加） | 6 |
+| VM Boot/Tools REST | 4 |
+| Namespace/Compat/その他 | 18 |
+| **合計** | **244** |
 
-実装完了後の総ツール数: **413 + 122 = 535**
+実装完了後の総ツール数: **413 + 244 = 657**
