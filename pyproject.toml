@@ -23,7 +23,7 @@ classifiers = [
     "Intended Audience :: System Administrators",
 ]
 dependencies = [
-    "mcp>=1.0.0",
+    "mcp>=1.27.1",
     "pyvmomi>=8.0.0",
     "pydantic-settings>=2.0.0",
     "structlog>=24.0.0",
